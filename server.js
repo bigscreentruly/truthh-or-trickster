@@ -73,6 +73,22 @@ io.on('connection', (socket) => {
         io.to(code).emit('room-update', getPublicState(room));
     });
 
+    // Host starts the game
+    socket.on('start-game', ({ code, hostSecret }) => {
+        const room = rooms[code];
+        if (!room) return;
+
+        // Verify that the person starting is the actual host
+        if (room.hostSocketId === socket.id || room.hostSecret === hostSecret) {
+            room.status = 'playing';
+            room.roundNumber = 1;
+            
+            // Broadcast to everyone in the room that the game has started
+            io.to(code).emit('game-started', getPublicState(room));
+            console.log(`Game started in room: ${code}`);
+        }
+    });
+
     // Handle disconnection
     socket.on('disconnect', () => {
         for (const code in rooms) {
