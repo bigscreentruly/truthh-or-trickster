@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truth or Trickster - Multiplayer Party Game</title>
+    <!-- Tailwind CSS for modern responsive dark neon UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Socket.io Client Script -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Google Fonts: Orbitron & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+    <!-- FontAwesome for neon icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti for victory explosions -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        orbitron: ['Orbitron', 'sans-serif'],
+                    },
+                    colors: {
+                        darkBg: '#09090b',
+                        cardBg: '#121216',
+                        neonPurple: '#a855f7',
+                        neonPink: '#ec4899',
+                        neonCyan: '#06b6d4',
+                        neonGreen: '#10b981',
+                        neonYellow: '#f59e0b',
+                    },
+                    boxShadow: {
+                        'neon-purple': '0 0 20px rgba(168, 85, 247, 0.4)',
+                        'neon-pink': '0 0 20px rgba(236, 72, 153, 0.4)',
+                        'neon-cyan': '0 0 20px rgba(6, 182, 212, 0.4)',
+                        'neon-green': '0 0 20px rgba(16, 185, 129, 0.4)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #09090b;
+            color: #f4f4f5;
+            overflow-x: hidden;
+        }
+        .glow-title {
+            text-shadow: 0 0 10px rgba(168, 85, 247, 0.6), 0 0 30px rgba(236, 72, 153, 0.4);
+        }
+        .glow-box {
+            box-shadow: 0 0 25px rgba(168, 85, 247, 0.2);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #121216;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #27272a;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #3f3f46;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 3s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col justify-between selection:bg-neonPurple selection:text-white">
+
+    <!-- Background Ambient Glow Effects -->
+    <div class="fixed top-0 left-1/4 w-96 h-96 bg-purple-900/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow"></div>
+    <div class="fixed bottom-0 right-1/4 w-96 h-96 bg-pink-900/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" style="animation-delay: 1.5s;"></div>
+
+    <!-- Header Navigation -->
+    <header class="w-full border-b border-zinc-800/80 bg-darkBg/80 backdrop-blur-md sticky top-0 z-50 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="returnToHome()">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center shadow-neon-purple">
+                <i class="fa-solid fa-masks-theater text-white text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-orbitron font-extrabold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 text-lg">TRUTH OR TRICKSTER</h1>
+                <p class="text-[10px] text-zinc-400 tracking-widest uppercase">Multiplayer Node.js Edition</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <div id="connectionStatusBadge" class="flex items-center space-x-2 px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-full text-xs">
+                <span id="statusDot" class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+                <span id="statusText" class="text-zinc-300">Connecting...</span>
+            </div>
+            <button onclick="toggleAudio()" id="audioToggleBtn" title="Toggle Sound FX" class="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-700 transition">
+                <i class="fa-solid fa-volume-high" id="audioIcon"></i>
+            </button>
+            <button onclick="openRulesModal()" class="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-700 transition" title="Game Rules">
+                <i class="fa-solid fa-question"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Dynamic Application Container -->
+    <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center items-center z-10">
+
+        <!-- VIEW 1: LOBBY / HOME SCREEN -->
+        <div id="viewHome" class="w-full max-w-md space-y-6 animate-fadeIn">
+            <div class="text-center space-y-2">
+                <h2 class="font-orbitron text-3xl sm:text-4xl font-black text-white glow-title">WHO CAN YOU TRUST?</h2>
+                <p class="text-sm text-zinc-400">Join friends across any device. One player tells the truth or bluffs; the trickster tries to fake it!</p>
+            </div>
+
+            <div class="glow-box bg-cardBg/90 backdrop-blur-xl p-6 sm:p-8 rounded-2xl space-y-5">
+                <div>
+                    <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Your Nickname</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-zinc-500">
+                            <i class="fa-solid fa-user"></i>
+                        </span>
+                        <input type="text" id="playerNameInput" maxlength="15" placeholder="Enter your player name..." 
+                            class="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition text-sm">
+                    </div>
+                </div>
+
+                <div class="space-y-3 pt-2">
+                    <button onclick="createRoom()" class="w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-orbitron font-bold rounded-xl shadow-neon-purple transition transform active:scale-95 flex items-center justify-center space-x-2 text-sm">
+                        <i class="fa-solid fa-plus-circle"></i>
+                        <span>CREATE NEW ROOM</span>
+                    </button>
+
+                    <div class="relative flex py-1 items-center">
+                        <div class="flex-grow border-t border-zinc-800"></div>
+                        <span class="flex-shrink mx-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">or join existing</span>
+                        <div class="flex-grow border-t border-zinc-800"></div>
+                    </div>
+
+                    <div class="flex space-x-2">
+                        <input type="text" id="roomCodeInput" maxlength="4" placeholder="4-Digit Code" 
+                            class="w-36 text-center uppercase tracking-widest font-orbitron font-bold py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition text-lg">
+                        <button onclick="joinRoom()" class="flex-1 py-3 px-4 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-orbitron font-bold rounded-xl transition transform active:scale-95 flex items-center justify-center space-x-2 text-sm shadow-neon-cyan">
+                            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                            <span>JOIN ROOM</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: WAITING ROOM / LOBBY -->
+        <div id="viewLobby" class="w-full max-w-lg space-y-6 hidden animate-fadeIn">
+            <div class="glow-box bg-cardBg/90 backdrop-blur-xl p-6 sm:p-8 rounded-2xl space-y-6">
+                <div class="flex flex-col sm:flex-row items-center justify-between pb-4 border-b border-zinc-800 gap-4">
+                    <div>
+                        <span class="text-xs font-semibold text-purple-400 uppercase tracking-widest">Room Code</span>
+                        <div class="flex items-center space-x-3 mt-1">
+                            <h2 id="displayRoomCode" class="font-orbitron text-3xl font-black text-white tracking-widest">----</h2>
+                            <button onclick="copyRoomCode()" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-xs font-medium text-zinc-300 transition flex items-center space-x-1.5">
+                                <i class="fa-solid fa-copy"></i>
+                                <span>Copy</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div id="hostBadgeContainer" class="hidden">
+                        <span class="px-3 py-1 bg-purple-500/10 border border-purple-500/30 text-purple-300 rounded-full text-xs font-semibold uppercase tracking-wider flex items-center space-x-1.5">
+                            <i class="fa-solid fa-crown text-yellow-400"></i>
+                            <span>Room Host</span>
+                        </span>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-orbitron font-bold text-sm text-zinc-300 uppercase tracking-wider">Players in Room</h3>
+                        <span id="playerCountBadge" class="px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded-full text-xs">0 / 8</span>
+                    </div>
+                    <div id="lobbyPlayersList" class="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
+                        <!-- Dynamic players populated here -->
+                    </div>
+                </div>
+
+                <!-- Host Controls / Start Button -->
+                <div id="hostControls" class="hidden pt-2">
+                    <button onclick="startGame()" class="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-zinc-950 font-orbitron font-extrabold rounded-xl shadow-neon-green transition transform active:scale-95 flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-play"></i>
+                        <span>START GAME</span>
+                    </button>
+                    <p class="text-center text-[11px] text-zinc-500 mt-2">Requires at least 3 players to start.</p>
+                </div>
+
+                <!-- Non-Host Waiting Message -->
+                <div id="guestControls" class="text-center py-3">
+                    <p class="text-sm text-zinc-400 animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Waiting for host to start the game...</p>
+                </div>
+
+                <div class="text-center pt-2">
+                    <button onclick="leaveRoom()" class="text-xs text-red-400 hover:text-red-300 transition">Leave Room</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: GAMEPLAY SCREEN -->
+        <div id="viewGame" class="w-full max-w-2xl space-y-6 hidden animate-fadeIn">
+            <!-- Game Top Status Bar -->
+            <div class="flex items-center justify-between bg-cardBg border border-zinc-800 p-4 rounded-xl">
+                <div class="flex items-center space-x-3">
+                    <div class="w-9 h-9 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 font-orbitron font-bold text-sm" id="currentRoundIndicator">
+                        R1
+                    </div>
+                    <div>
+                        <p class="text-[10px] text-zinc-400 uppercase tracking-wider">Current Phase</p>
+                        <h4 id="phaseTitle" class="font-orbitron font-bold text-sm text-white">Role Assignment</h4>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PHASE A: ROLE REVEAL -->
+            <div id="phaseRoleReveal" class="glow-box bg-cardBg/95 backdrop-blur-xl p-6 sm:p-10 rounded-2xl text-center space-y-6">
+                <div class="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center shadow-neon-purple text-3xl text-white">
+                    <i class="fa-solid fa-user-secret" id="roleIcon"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Your Secret Role</span>
+                    <h3 id="myRoleTitle" class="font-orbitron text-3xl font-black text-white mt-1">TRUTH TELLER</h3>
+                </div>
+                <div class="p-4 bg-zinc-900/80 border border-zinc-800 rounded-xl text-left max-w-md mx-auto space-y-2">
+                    <p class="text-xs font-semibold text-purple-400 uppercase tracking-wider"><i class="fa-solid fa-circle-info mr-1"></i> Your Objective</p>
+                    <p id="myRoleDescription" class="text-sm text-zinc-300 leading-relaxed">You received the real story prompt. Answer truthfully or convincingly based on the facts provided!</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full py-4 text-center text-xs text-zinc-600 border-t border-zinc-900">
+        Truth or Trickster Multiplayer &bull; Powered by Node.js & Socket.io
+    </footer>
+
+    <!-- RULES MODAL -->
+    <div id="rulesModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden animate-fadeIn">
+        <div class="glow-box bg-cardBg border border-zinc-800 max-w-lg w-full p-6 sm:p-8 rounded-2xl space-y-6 relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div class="flex items-center justify-between pb-4 border-b border-zinc-800">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <h3 class="font-orbitron font-bold text-lg text-white">How to Play</h3>
+                </div>
+                <button onclick="closeRulesModal()" class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="space-y-4 text-sm text-zinc-300">
+                <p>Create a room as host, share your 4-digit code, and let friends join from any device in real time!</p>
+            </div>
+            <button onclick="closeRulesModal()" class="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-orbitron font-bold rounded-xl transition text-sm shadow-neon-purple">
+                GOT IT
+            </button>
+        </div>
+    </div>
+
+    <!-- MESSAGE MODAL -->
+    <div id="messageModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden animate-fadeIn">
+        <div class="glow-box bg-cardBg border border-zinc-800 max-w-sm w-full p-6 rounded-2xl text-center space-y-4">
+            <h4 id="modalTitle" class="font-orbitron font-bold text-white text-lg">Notification</h4>
+            <p id="modalMessage" class="text-sm text-zinc-300">Message content here...</p>
+            <button onclick="closeMessageModal()" class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white font-orbitron font-bold rounded-xl text-sm transition">
+                OK
+            </button>
+        </div>
+    </div>
+
+    <!-- SOCKET.IO GAME SCRIPT -->
+    <script>
+        const socket = io();
+
+        let state = {
+            view: 'home',
+            playerName: '',
+            roomCode: '',
+            isHost: false,
+            players: [],
+            audioEnabled: true
+        };
+
+        // Connection status tracking
+        socket.on('connect', () => {
+            document.getElementById('statusDot').className = "w-2 h-2 rounded-full bg-green-500";
+            document.getElementById('statusText').innerText = "Connected";
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('statusDot').className = "w-2 h-2 rounded-full bg-red-500 animate-pulse";
+            document.getElementById('statusText').innerText = "Disconnected";
+        });
+
+        socket.on('room-update', (roomState) => {
+            state.players = roomState.players;
+            if (state.view === 'lobby') {
+                updateLobbyUI();
+            }
+        });
+
+        socket.on('room-closed', () => {
+            showModal("Room Closed", "The host has left the room.", "fa-solid fa-triangle-exclamation");
+            leaveRoom();
+        });
+
+        function showModal(title, message) {
+            document.getElementById('modalTitle').innerText = title;
+            document.getElementById('modalMessage').innerText = message;
+            document.getElementById('messageModal').classList.remove('hidden');
+        }
+
+        function closeMessageModal() {
+            document.getElementById('messageModal').classList.add('hidden');
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-zinc-900 border border-purple-500/50 px-4 py-2.5 rounded-xl shadow-neon-purple text-xs text-white font-medium animate-fadeIn';
+            toast.innerText = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+        }
+
+        function openRulesModal() { document.getElementById('rulesModal').classList.remove('hidden'); }
+        function closeRulesModal() { document.getElementById('rulesModal').classList.add('hidden'); }
+
+        function switchView(viewName) {
+            state.view = viewName;
+            document.getElementById('viewHome').classList.add('hidden');
+            document.getElementById('viewLobby').classList.add('hidden');
+            document.getElementById('viewGame').classList.add('hidden');
+
+            if (viewName === 'home') document.getElementById('viewHome').classList.remove('hidden');
+            if (viewName === 'lobby') document.getElementById('viewLobby').classList.remove('hidden');
+            if (viewName === 'game') document.getElementById('viewGame').classList.remove('hidden');
+        }
+
+        function createRoom() {
+            const name = document.getElementById('playerNameInput').value.trim();
+            if (!name) {
+                showModal("Name Required", "Please enter your nickname.");
+                return;
+            }
+            state.playerName = name;
+
+            socket.emit('create-room', (response) => {
+                if (response.success) {
+                    state.roomCode = response.code;
+                    state.isHost = true;
+                    document.getElementById('displayRoomCode').innerText = state.roomCode;
+                    document.getElementById('hostBadgeContainer').classList.remove('hidden');
+                    document.getElementById('hostControls').classList.remove('hidden');
+                    document.getElementById('guestControls').classList.add('hidden');
+                    
+                    // Join local tracking
+                    socket.emit('join-room', { code: state.roomCode, name: state.playerName }, (res) => {
+                        switchView('lobby');
+                        showToast("Room created: " + state.roomCode);
+                    });
+                }
+            });
+        }
+
+        function joinRoom() {
+            const name = document.getElementById('playerNameInput').value.trim();
+            const code = document.getElementById('roomCodeInput').value.trim().toUpperCase();
+
+            if (!name) {
+                showModal("Name Required", "Please enter your nickname.");
+                return;
+            }
+            if (code.length !== 4) {
+                showModal("Invalid Code", "Please enter a valid 4-digit code.");
+                return;
+            }
+
+            state.playerName = name;
+            state.roomCode = code;
+            state.isHost = false;
+
+            socket.emit('join-room', { code, name }, (response) => {
+                if (response.success) {
+                    document.getElementById('displayRoomCode').innerText = code;
+                    document.getElementById('hostBadgeContainer').classList.add('hidden');
+                    document.getElementById('hostControls').classList.add('hidden');
+                    document.getElementById('guestControls').classList.remove('hidden');
+                    switchView('lobby');
+                    showToast("Joined room " + code);
+                } else {
+                    showModal("Error", response.error || "Could not join room.");
+                }
+            });
+        }
+
+        function copyRoomCode() {
+            navigator.clipboard.writeText(state.roomCode);
+            showToast("Room code copied!");
+        }
+
+        function leaveRoom() {
+            window.location.reload();
+        }
+
+        function updateLobbyUI() {
+            const listEl = document.getElementById('lobbyPlayersList');
+            const countEl = document.getElementById('playerCountBadge');
+            listEl.innerHTML = '';
+            countEl.innerText = state.players.length + " / 8";
+
+            state.players.forEach(p => {
+                const item = document.createElement('div');
+                item.className = 'flex items-center justify-between p-3 bg-zinc-900 border border-zinc-800 rounded-xl';
+                item.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 rounded-lg bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold text-xs">
+                            ${p.name.charAt(0).toUpperCase()}
+                        </div>
+                        <span class="text-sm font-medium text-white">${p.name}</span>
+                    </div>
+                    ${p.id === state.players[0]?.id ? '<span class="text-[10px] bg-purple-500/10 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">Host</span>' : '<span class="text-xs text-zinc-500">Player</span>'}
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        function startGame() {
+            showToast("Game start feature coming up next!");
+        }
+
+        function returnToHome() {
+            switchView('home');
+        }
+
+        window.onload = () => switchView('home');
+    </script>
+</body>
+</html>
