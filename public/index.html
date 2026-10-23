@@ -1,456 +1,1718 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Truth or Trickster - Multiplayer Party Game</title>
-    <!-- Tailwind CSS for modern responsive dark neon UI -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Socket.io Client Script -->
-    <script src="/socket.io/socket.io.js"></script>
-    <!-- Google Fonts: Orbitron & Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
-    <!-- FontAwesome for neon icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Canvas Confetti for victory explosions -->
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        orbitron: ['Orbitron', 'sans-serif'],
-                    },
-                    colors: {
-                        darkBg: '#09090b',
-                        cardBg: '#121216',
-                        neonPurple: '#a855f7',
-                        neonPink: '#ec4899',
-                        neonCyan: '#06b6d4',
-                        neonGreen: '#10b981',
-                        neonYellow: '#f59e0b',
-                    },
-                    boxShadow: {
-                        'neon-purple': '0 0 20px rgba(168, 85, 247, 0.4)',
-                        'neon-pink': '0 0 20px rgba(236, 72, 153, 0.4)',
-                        'neon-cyan': '0 0 20px rgba(6, 182, 212, 0.4)',
-                        'neon-green': '0 0 20px rgba(16, 185, 129, 0.4)',
-                    }
-                }
+    <title>Truth or Trickster - Social Deduction Party Game</title>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: #131b2e;
+            --panel-bg-alt: #1a233a;
+            --accent-neon: #00f0ff;
+            --accent-pink: #ff007f;
+            --accent-yellow: #f3e600;
+            --accent-green: #10b981;
+            --text-main: #ffffff;
+            --text-muted: #94a3b8;
+            --danger: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px;
+            justify-content: center;
+        }
+
+        /* Layout Grid for Host View */
+        .host-layout {
+            display: grid;
+            grid-template-columns: 2.5fr 1fr;
+            gap: 20px;
+            width: 100%;
+            max-width: 1300px;
+            flex-grow: 1;
+            min-height: 85vh;
+        }
+
+        @media (max-width: 900px) {
+            .host-layout {
+                grid-template-columns: 1fr;
             }
         }
-    </script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #09090b;
-            color: #f4f4f5;
-            overflow-x: hidden;
+
+        .main-stage {
+            background-color: var(--panel-bg);
+            border: 2px solid rgba(0, 240, 255, 0.25);
+            border-radius: 16px;
+            padding: 35px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            text-align: center;
+            position: relative;
         }
-        .glow-title {
-            text-shadow: 0 0 10px rgba(168, 85, 247, 0.6), 0 0 30px rgba(236, 72, 153, 0.4);
+
+        .control-sidebar {
+            background-color: var(--panel-bg);
+            border: 2px solid rgba(255, 0, 127, 0.25);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
         }
-        .glow-box {
-            box-shadow: 0 0 25px rgba(168, 85, 247, 0.2);
-            border: 1px solid rgba(168, 85, 247, 0.3);
+
+        header {
+            text-align: center;
+            margin-bottom: 15px;
+            grid-column: 1 / -1;
         }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 6px;
+
+        h1 {
+            font-size: 2.2rem;
+            color: var(--accent-neon);
+            text-shadow: 0 0 16px rgba(0, 240, 255, 0.4);
+            letter-spacing: 2px;
         }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #121216;
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-top: 4px;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #27272a;
-            border-radius: 3px;
+
+        .story-title {
+            font-size: 1.6rem;
+            color: var(--accent-pink);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: bold;
+            margin-bottom: 15px;
         }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #3f3f46;
+
+        .story-public-text {
+            font-size: 1.8rem;
+            line-height: 1.4;
+            margin-bottom: 25px;
+            font-weight: 600;
         }
-        @keyframes pulseGlow {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 0.8; }
+
+        .instruction-text {
+            font-size: 1.2rem;
+            color: var(--accent-yellow);
+            font-style: italic;
+            margin-top: 15px;
         }
-        .animate-pulse-glow {
-            animation: pulseGlow 3s infinite ease-in-out;
+
+        .sidebar-section h3 {
+            font-size: 0.95rem;
+            color: var(--accent-neon);
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .room-code-box {
+            background: #070a12;
+            border: 2px dashed var(--accent-neon);
+            padding: 14px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .code-digits {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--accent-yellow);
+            letter-spacing: 6px;
+            text-shadow: 0 0 12px rgba(243, 230, 0, 0.4);
+        }
+
+        .connection-status {
+            font-size: 0.8rem;
+            color: var(--accent-green);
+            font-weight: bold;
+            margin-top: 6px;
+            text-align: center;
+        }
+
+        /* Player Lists */
+        .player-list {
+            background: #070a12;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            max-height: 180px;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            padding: 7px 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .player-item:last-child {
+            border-bottom: none;
+        }
+
+        .badge {
+            font-size: 0.75rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        .badge.voted {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+        }
+
+        .badge.pending {
+            background: rgba(148, 163, 184, 0.1);
+            color: var(--text-muted);
+            border: 1px solid var(--text-muted);
+        }
+        
+        .badge.speaking {
+            background: rgba(255, 0, 127, 0.25);
+            color: var(--accent-pink);
+            border: 1px solid var(--accent-pink);
+        }
+
+        .badge.score {
+            background: rgba(243, 230, 0, 0.2);
+            color: var(--accent-yellow);
+            border: 1px solid var(--accent-yellow);
+        }
+
+        /* Buttons & Inputs */
+        button {
+            background: transparent;
+            color: var(--text-main);
+            border: 2px solid var(--accent-neon);
+            padding: 12px 16px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-transform: uppercase;
+            width: 100%;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        button:hover:not(:disabled) {
+            background: var(--accent-neon);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.6);
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        button.primary { background: var(--accent-neon); color: var(--bg-color); }
+        button.primary:hover:not(:disabled) { box-shadow: 0 0 20px rgba(0, 240, 255, 0.8); }
+        
+        button.pink { border-color: var(--accent-pink); color: var(--accent-pink); }
+        button.pink:hover:not(:disabled) { background: var(--accent-pink); box-shadow: 0 0 15px rgba(255, 0, 127, 0.6); color: var(--text-main); }
+        
+        button.yellow { border-color: var(--accent-yellow); color: var(--accent-yellow); }
+        button.yellow:hover:not(:disabled) { background: var(--accent-yellow); box-shadow: 0 0 15px rgba(243, 230, 0, 0.6); color: var(--bg-color); }
+
+        button.green { border-color: var(--accent-green); color: var(--accent-green); }
+        button.green:hover:not(:disabled) { background: var(--accent-green); box-shadow: 0 0 15px rgba(16, 185, 129, 0.6); color: var(--bg-color); }
+
+        button.small-btn {
+            padding: 6px 10px;
+            font-size: 0.75rem;
+            margin-bottom: 0;
+            width: auto;
+        }
+
+        /* Home / Join Screen */
+        #homeView {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: var(--panel-bg);
+            border: 2px solid var(--accent-neon);
+            padding: 35px 25px;
+            border-radius: 16px;
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .code-input {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.2rem;
+            text-align: center;
+            background: #070a12;
+            border: 2px solid var(--accent-pink);
+            color: var(--text-main);
+            border-radius: 8px;
+            margin-bottom: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .code-input:focus {
+            border-color: var(--accent-neon);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+        }
+
+        .code-input.room-code {
+            letter-spacing: 6px;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        .error-message {
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+            border: 1px solid var(--danger);
+            padding: 10px 14px;
+            border-radius: 8px;
+            margin-top: 12px;
+            font-size: 0.9rem;
+            display: none;
+            text-align: center;
+            width: 100%;
+        }
+
+        /* Mobile Voter View */
+        #playerView {
+            display: none;
+            width: 100%;
+            max-width: 480px;
+            margin: auto;
+            text-align: center;
+            background: var(--panel-bg);
+            padding: 24px;
+            border-radius: 16px;
+            border: 2px solid var(--accent-neon);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .player-status-banner {
+            background: #070a12;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            margin-bottom: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-weight: 500;
+        }
+
+        /* Cards */
+        .card-truth { background: rgba(16, 185, 129, 0.12); border: 2px solid var(--accent-green); padding: 22px; border-radius: 12px; margin-bottom: 20px; display: none; }
+        .card-trickster { background: rgba(255, 0, 127, 0.12); border: 2px solid var(--accent-pink); padding: 22px; border-radius: 12px; margin-bottom: 20px; display: none; }
+        .card-jury { background: rgba(0, 240, 255, 0.12); border: 2px solid var(--accent-neon); padding: 22px; border-radius: 12px; margin-bottom: 20px; display: none; }
+
+        .story-details-box {
+            background: #070a12;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 14px;
+            border-radius: 8px;
+            margin: 12px 0;
+            text-align: left;
+            font-size: 0.95rem;
+            line-height: 1.45;
+        }
+
+        /* Mobile Vote Buttons */
+        #voteSection { display: none; margin-top: 15px; }
+        .vote-btn { padding: 18px; font-size: 1.1rem; margin-bottom: 12px; }
+
+        /* Scores in player view */
+        .mobile-scoreboard {
+            margin-top: 20px;
+            background: #070a12;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 0.85rem;
+        }
+
+        /* Modal & Rules Styling */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(7, 10, 18, 0.88);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .rules-modal-content {
+            background: var(--panel-bg);
+            border: 2px solid var(--accent-neon);
+            box-shadow: 0 0 35px rgba(0, 240, 255, 0.3), 0 20px 40px rgba(0, 0, 0, 0.8);
+            border-radius: 18px;
+            max-width: 820px;
+            width: 100%;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: slideUp 0.25s ease;
+            position: relative;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .rules-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 24px;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+            background: #070a12;
+        }
+
+        .rules-modal-header h2 {
+            font-size: 1.35rem;
+            color: var(--accent-neon);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 1px;
+        }
+
+        .close-modal-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--text-muted);
+            font-size: 1.3rem;
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 0;
+            line-height: 1;
+            transition: all 0.2s;
+        }
+
+        .close-modal-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: var(--danger);
+            color: white;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+        }
+
+        .rules-nav-tabs {
+            display: flex;
+            background: #070a12;
+            padding: 8px 16px;
+            gap: 6px;
+            overflow-x: auto;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            scrollbar-width: thin;
+        }
+
+        .rules-tab-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: var(--text-muted);
+            padding: 8px 14px;
+            font-size: 0.85rem;
+            border-radius: 6px;
+            white-space: nowrap;
+            cursor: pointer;
+            width: auto;
+            margin-bottom: 0;
+            text-transform: none;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+
+        .rules-tab-btn:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+            box-shadow: none;
+            transform: none;
+        }
+
+        .rules-tab-btn.active {
+            color: var(--accent-neon);
+            background: rgba(0, 240, 255, 0.12);
+            border-color: var(--accent-neon);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+            font-weight: bold;
+        }
+
+        .rules-modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            line-height: 1.55;
+            font-size: 0.95rem;
+        }
+
+        .rules-tab-content {
+            display: none;
+            animation: fadeIn 0.2s ease;
+        }
+
+        .rules-tab-content.active {
+            display: block;
+        }
+
+        .rule-card {
+            background: #070a12;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 14px;
+        }
+
+        .rule-card.highlight-pink {
+            border-color: rgba(255, 0, 127, 0.45);
+            background: rgba(255, 0, 127, 0.05);
+        }
+
+        .rule-card.highlight-green {
+            border-color: rgba(16, 185, 129, 0.45);
+            background: rgba(16, 185, 129, 0.05);
+        }
+
+        .rule-card.highlight-yellow {
+            border-color: rgba(243, 230, 0, 0.45);
+            background: rgba(243, 230, 0, 0.05);
+        }
+
+        .rule-card.highlight-neon {
+            border-color: rgba(0, 240, 255, 0.45);
+            background: rgba(0, 240, 255, 0.05);
+        }
+
+        .rule-card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rule-step-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin: 10px 0;
+        }
+
+        .rule-step-item {
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+        }
+
+        .rule-step-number {
+            background: var(--panel-bg-alt);
+            border: 1px solid var(--accent-neon);
+            color: var(--accent-neon);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .rule-tip-box {
+            background: rgba(243, 230, 0, 0.08);
+            border-left: 3px solid var(--accent-yellow);
+            padding: 10px 14px;
+            border-radius: 0 8px 8px 0;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #fef08a;
+        }
+
+        .scoring-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .scoring-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .score-box {
+            background: #070a12;
+            border-radius: 10px;
+            padding: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .score-pts {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: var(--accent-yellow);
+            margin-bottom: 4px;
+        }
+
+        .rules-modal-footer {
+            padding: 14px 24px;
+            background: #070a12;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .quick-rule-btn {
+            background: rgba(0, 240, 255, 0.1);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            color: var(--accent-neon);
+            font-size: 0.8rem;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .quick-rule-btn:hover {
+            background: rgba(0, 240, 255, 0.2);
+            border-color: var(--accent-neon);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+            color: #ffffff;
+        }
+
+        .lobby-rules-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-top: 25px;
+            text-align: left;
+        }
+
+        @media (max-width: 768px) {
+            .lobby-rules-summary {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
-<body class="h-full flex flex-col justify-between selection:bg-neonPurple selection:text-white">
+<body>
 
-    <!-- Background Ambient Glow Effects -->
-    <div class="fixed top-0 left-1/4 w-96 h-96 bg-purple-900/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow"></div>
-    <div class="fixed bottom-0 right-1/4 w-96 h-96 bg-pink-900/20 rounded-full blur-3xl pointer-events-none animate-pulse-glow" style="animation-delay: 1.5s;"></div>
+    <!-- HOME / SELECTION SCREEN -->
+    <div id="homeView">
+        <h1 style="margin-bottom: 8px;">TRUTH OR TRICKSTER</h1>
+        <p style="color: var(--text-muted); margin-bottom: 22px; font-size: 0.95rem;">Enter your name and the 4-digit room code to join.</p>
+        
+        <input type="text" id="playerNameInput" class="code-input" placeholder="Your Name" maxlength="15" autocomplete="off">
+        <input type="text" id="roomCodeInput" class="code-input room-code" placeholder="0000" maxlength="4" autocomplete="off" inputmode="numeric">
+        
+        <button id="joinBtn" onclick="joinGame()" class="primary" style="padding: 15px; font-size: 1.1rem;">Join Game</button>
+        <div id="joinError" class="error-message"></div>
+        
+        <button onclick="openRulesModal('overview')" class="yellow" style="margin-top: 10px; padding: 12px; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px;">📖 How to Play & Game Rules</button>
 
-    <!-- Header Navigation -->
-    <header class="w-full border-b border-zinc-800/80 bg-darkBg/80 backdrop-blur-md sticky top-0 z-50 px-4 py-3 flex items-center justify-between">
-        <div class="flex items-center space-x-3 cursor-pointer" onclick="returnToHome()">
-            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center shadow-neon-purple">
-                <i class="fa-solid fa-masks-theater text-white text-lg"></i>
-            </div>
+        <div style="margin-top: 25px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px; width: 100%;">
+            <button id="hostBtn" onclick="startHosting()" style="font-size: 0.9rem; border-color: var(--text-muted); color: var(--text-muted);">Start as Host (Big Screen)</button>
+        </div>
+    </div>
+
+    <!-- HOST VIEW -->
+    <div id="hostView" class="host-layout" style="display: none;">
+        <header style="display: flex; justify-content: space-between; align-items: center; width: 100%; flex-wrap: wrap; gap: 10px;">
             <div>
-                <h1 class="font-orbitron font-extrabold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 text-lg">TRUTH OR TRICKSTER</h1>
-                <p class="text-[10px] text-zinc-400 tracking-widest uppercase">Multiplayer Node.js Edition</p>
+                <h1>TRUTH OR TRICKSTER</h1>
+                <div class="subtitle">Social Deduction Game Panel</div>
             </div>
+            <button onclick="openRulesModal('host')" class="small-btn yellow" style="width: auto; padding: 8px 16px; font-size: 0.85rem; display: flex; align-items: center; gap: 6px;">📖 Rules & Host Guide</button>
+        </header>
+
+        <div class="main-stage">
+            <div>
+                <div id="hostStoryTitle" class="story-title">System Ready</div>
+                <div id="hostStoryText" class="story-public-text">Waiting to start the first round.</div>
+                <div id="hostInstruction" class="instruction-text">Players, connect using the room code!</div>
+            </div>
+            
+            <div id="hostVotesDisplay" style="margin-top: 30px; display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; display: none;"></div>
         </div>
 
-        <div class="flex items-center space-x-3">
-            <div id="connectionStatusBadge" class="flex items-center space-x-2 px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-full text-xs">
-                <span id="statusDot" class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
-                <span id="statusText" class="text-zinc-300">Connecting...</span>
-            </div>
-            <button onclick="openRulesModal()" class="w-9 h-9 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white hover:border-zinc-700 transition" title="Game Rules">
-                <i class="fa-solid fa-question"></i>
-            </button>
-        </div>
-    </header>
-
-    <!-- Main Dynamic Application Container -->
-    <main class="flex-1 max-w-4xl w-full mx-auto p-4 sm:p-6 flex flex-col justify-center items-center z-10">
-
-        <!-- VIEW 1: LOBBY / HOME SCREEN -->
-        <div id="viewHome" class="w-full max-w-md space-y-6 animate-fadeIn">
-            <div class="text-center space-y-2">
-                <h2 class="font-orbitron text-3xl sm:text-4xl font-black text-white glow-title">WHO CAN YOU TRUST?</h2>
-                <p class="text-sm text-zinc-400">Join friends across any device. One player tells the truth or bluffs; the trickster tries to fake it!</p>
+        <!-- Control Sidebar -->
+        <div class="control-sidebar">
+            <div class="sidebar-section">
+                <h3>Room Code <button class="small-btn yellow" onclick="copyRoomLink()">Copy Link</button></h3>
+                <div class="room-code-box">
+                    <div id="roomCodeDisplay" class="code-digits">----</div>
+                </div>
+                <div id="connStatus" class="connection-status">Online & Ready</div>
             </div>
 
-            <div class="glow-box bg-cardBg/90 backdrop-blur-xl p-6 sm:p-8 rounded-2xl space-y-5">
-                <div>
-                    <label class="block text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2">Your Nickname</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-zinc-500">
-                            <i class="fa-solid fa-user"></i>
-                        </span>
-                        <input type="text" id="playerNameInput" maxlength="15" placeholder="Enter your player name..." 
-                            class="w-full pl-10 pr-4 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition text-sm">
-                    </div>
-                </div>
-
-                <div class="space-y-3 pt-2">
-                    <button onclick="createRoom()" class="w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-orbitron font-bold rounded-xl shadow-neon-purple transition transform active:scale-95 flex items-center justify-center space-x-2 text-sm">
-                        <i class="fa-solid fa-plus-circle"></i>
-                        <span>CREATE NEW ROOM</span>
-                    </button>
-
-                    <div class="relative flex py-1 items-center">
-                        <div class="flex-grow border-t border-zinc-800"></div>
-                        <span class="flex-shrink mx-4 text-zinc-500 text-xs font-medium uppercase tracking-wider">or join existing</span>
-                        <div class="flex-grow border-t border-zinc-800"></div>
-                    </div>
-
-                    <div class="flex space-x-2">
-                        <input type="text" id="roomCodeInput" maxlength="4" placeholder="4-Digit Code" 
-                            class="w-36 text-center uppercase tracking-widest font-orbitron font-bold py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition text-lg">
-                        <button onclick="joinRoom()" class="flex-1 py-3 px-4 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-orbitron font-bold rounded-xl transition transform active:scale-95 flex items-center justify-center space-x-2 text-sm shadow-neon-cyan">
-                            <i class="fa-solid fa-arrow-right-to-bracket"></i>
-                            <span>JOIN ROOM</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- VIEW 2: WAITING ROOM / LOBBY -->
-        <div id="viewLobby" class="w-full max-w-lg space-y-6 hidden animate-fadeIn">
-            <div class="glow-box bg-cardBg/90 backdrop-blur-xl p-6 sm:p-8 rounded-2xl space-y-6">
-                <div class="flex flex-col sm:flex-row items-center justify-between pb-4 border-b border-zinc-800 gap-4">
-                    <div>
-                        <span class="text-xs font-semibold text-purple-400 uppercase tracking-widest">Room Code</span>
-                        <div class="flex items-center space-x-3 mt-1">
-                            <h2 id="displayRoomCode" class="font-orbitron text-3xl font-black text-white tracking-widest">----</h2>
-                            <button onclick="copyRoomCode()" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg text-xs font-medium text-zinc-300 transition flex items-center space-x-1.5">
-                                <i class="fa-solid fa-copy"></i>
-                                <span>Copy</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div id="hostBadgeContainer" class="hidden">
-                        <span class="px-3 py-1 bg-purple-500/10 border border-purple-500/30 text-purple-300 rounded-full text-xs font-semibold uppercase tracking-wider flex items-center space-x-1.5">
-                            <i class="fa-solid fa-crown text-yellow-400"></i>
-                            <span>Room Host</span>
-                        </span>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="flex items-center justify-between mb-3">
-                        <h3 class="font-orbitron font-bold text-sm text-zinc-300 uppercase tracking-wider">Players in Room</h3>
-                        <span id="playerCountBadge" class="px-2 py-0.5 bg-zinc-800 text-zinc-400 rounded-full text-xs">0 / 8</span>
-                    </div>
-                    <div id="lobbyPlayersList" class="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-1">
-                        <!-- Dynamic players populated here -->
-                    </div>
-                </div>
-
-                <!-- Host Controls / Start Button -->
-                <div id="hostControls" class="hidden pt-2">
-                    <button onclick="startGame()" class="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-zinc-950 font-orbitron font-extrabold rounded-xl shadow-neon-green transition transform active:scale-95 flex items-center justify-center space-x-2">
-                        <i class="fa-solid fa-play"></i>
-                        <span>START GAME</span>
-                    </button>
-                    <p class="text-center text-[11px] text-zinc-500 mt-2">Requires at least 1 player to start.</p>
-                </div>
-
-                <!-- Non-Host Waiting Message -->
-                <div id="guestControls" class="text-center py-3">
-                    <p class="text-sm text-zinc-400 animate-pulse"><i class="fa-solid fa-spinner fa-spin mr-2"></i> Waiting for host to start the game...</p>
-                </div>
-
-                <div class="text-center pt-2">
-                    <button onclick="leaveRoom()" class="text-xs text-red-400 hover:text-red-300 transition">Leave Room</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- VIEW 3: GAMEPLAY SCREEN -->
-        <div id="viewGame" class="w-full max-w-2xl space-y-6 hidden animate-fadeIn">
-            <!-- Game Top Status Bar -->
-            <div class="flex items-center justify-between bg-cardBg border border-zinc-800 p-4 rounded-xl">
-                <div class="flex items-center space-x-3">
-                    <div class="w-9 h-9 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 font-orbitron font-bold text-sm" id="currentRoundIndicator">
-                        R1
-                    </div>
-                    <div>
-                        <p class="text-[10px] text-zinc-400 uppercase tracking-wider">Current Phase</p>
-                        <h4 id="phaseTitle" class="font-orbitron font-bold text-sm text-white">Game Started Successfully!</h4>
-                    </div>
+            <!-- Scoreboard -->
+            <div class="sidebar-section">
+                <h3>Scoreboard</h3>
+                <div id="scoreboardList" class="player-list">
+                    <div style="color: var(--text-muted); text-align: center; font-size: 0.8rem; padding: 10px;">Waiting for players to join...</div>
                 </div>
             </div>
 
-            <!-- PHASE A: GAMEPLAY CONTAINER -->
-            <div class="glow-box bg-cardBg/95 backdrop-blur-xl p-6 sm:p-10 rounded-2xl text-center space-y-6">
-                <div class="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-tr from-purple-600 to-pink-500 flex items-center justify-center shadow-neon-purple text-3xl text-white">
-                    <i class="fa-solid fa-gamepad"></i>
-                </div>
-                <div>
-                    <span class="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Status</span>
-                    <h3 class="font-orbitron text-2xl font-black text-white mt-1">THE GAME IS LIVE!</h3>
-                </div>
-                <div class="p-4 bg-zinc-900/80 border border-zinc-800 rounded-xl text-left max-w-md mx-auto space-y-2">
-                    <p class="text-xs font-semibold text-purple-400 uppercase tracking-wider"><i class="fa-solid fa-circle-info mr-1"></i> Next steps</p>
-                    <p class="text-sm text-zinc-300 leading-relaxed">De server is succesvol gestart! Je kunt nu verder bouwen aan de vragen en antwoorden rondes.</p>
+            <!-- Live Voting Tracker -->
+            <div class="sidebar-section">
+                <h3>Player Status (<span id="playerCount">0</span>)</h3>
+                <div id="playerListContainer" class="player-list">
+                    <div style="color: var(--text-muted); text-align: center; font-size: 0.8rem; padding: 10px;">No players connected yet</div>
                 </div>
             </div>
-        </div>
 
-    </main>
-
-    <!-- Footer -->
-    <footer class="w-full py-4 text-center text-xs text-zinc-600 border-t border-zinc-900">
-        Truth or Trickster Multiplayer &bull; Powered by Node.js & Socket.io
-    </footer>
-
-    <!-- RULES MODAL -->
-    <div id="rulesModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden animate-fadeIn">
-        <div class="glow-box bg-cardBg border border-zinc-800 max-w-lg w-full p-6 sm:p-8 rounded-2xl space-y-6 relative max-h-[90vh] overflow-y-auto custom-scrollbar">
-            <div class="flex items-center justify-between pb-4 border-b border-zinc-800">
-                <div class="flex items-center space-x-3">
-                    <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">
-                        <i class="fa-solid fa-book-open"></i>
-                    </div>
-                    <h3 class="font-orbitron font-bold text-lg text-white">How to Play</h3>
-                </div>
-                <button onclick="closeRulesModal()" class="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-white transition">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+            <!-- Game Controls -->
+            <div class="sidebar-section">
+                <h3>Host Controls</h3>
+                <button id="btnNextRound" onclick="nextRound()" class="primary">1. Pick Speaker & Topic</button>
+                <button id="btnStartVote" onclick="startVoting()" class="pink">2. Start Jury Vote</button>
+                <button id="btnReveal" onclick="revealTruth()" class="yellow">3. Reveal Truth & Scores</button>
+                <button onclick="openRulesModal('host')" class="small-btn" style="border-color: rgba(255,255,255,0.2); color: var(--text-muted); margin-top: 5px; width: 100%;">📖 Game Rules Guide</button>
             </div>
-            <div class="space-y-4 text-sm text-zinc-300">
-                <p>Create a room as host, share your 4-digit code, and let friends join from any device in real time!</p>
-            </div>
-            <button onclick="closeRulesModal()" class="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-orbitron font-bold rounded-xl transition text-sm shadow-neon-purple">
-                GOT IT
-            </button>
         </div>
     </div>
 
-    <!-- MESSAGE MODAL -->
-    <div id="messageModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden animate-fadeIn">
-        <div class="glow-box bg-cardBg border border-zinc-800 max-w-sm w-full p-6 rounded-2xl text-center space-y-4">
-            <h4 id="modalTitle" class="font-orbitron font-bold text-white text-lg">Notification</h4>
-            <p id="modalMessage" class="text-sm text-zinc-300">Message content here...</p>
-            <button onclick="closeMessageModal()" class="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white font-orbitron font-bold rounded-xl text-sm transition">
-                OK
-            </button>
+    <!-- PLAYER (MOBILE) VIEW -->
+    <div id="playerView">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div>
+                <span id="playerDisplayName" style="font-weight: bold; color: var(--accent-neon); font-size: 1.1rem;"></span>
+                <span id="playerRoomBadge" style="font-size: 0.8rem; color: var(--text-muted); margin-left: 6px;"></span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <div id="playerScoreDisplay" style="color: var(--accent-yellow); font-weight: bold; font-size: 1.1rem;">Score: 0 PTS</div>
+                <button onclick="openRulesModal('overview')" class="small-btn yellow" style="padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; margin-bottom: 0;">📖 Rules</button>
+            </div>
+        </div>
+        
+        <div id="playerStatus" class="player-status-banner">Connected! Waiting for host to start round.</div>
+        
+        <!-- Role: TRUTH TELLER -->
+        <div id="cardTruth" class="card-truth">
+            <h3 style="color: var(--accent-green); margin-bottom: 10px;">✅ YOU ARE TELLING THE TRUTH</h3>
+            <p style="font-size: 1.05rem; margin-bottom: 6px;">Topic: <strong id="topicTruth" style="color: white;"></strong></p>
+            
+            <div class="story-details-box">
+                <div style="font-size: 0.8rem; color: var(--accent-green); font-weight: bold; margin-bottom: 4px; text-transform: uppercase;">Your Truth Angle:</div>
+                <div id="storyPromptTruth" style="color: var(--text-main);"></div>
+            </div>
+
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Tell a real story from your life that fits this prompt so naturally that everyone knows it actually happened!</p>
+            <button onclick="rerollStoryPrompt()" class="small-btn yellow" style="width: 100%; margin-bottom: 10px;">🔄 Reroll Story Prompt</button>
+            <button onclick="openRulesModal('truth')" class="quick-rule-btn">💡 Truth Teller Tips & Rules</button>
+        </div>
+
+        <!-- Role: TRICKSTER -->
+        <div id="cardTrickster" class="card-trickster">
+            <h3 style="color: var(--accent-pink); margin-bottom: 10px;">🎭 YOU ARE THE TRICKSTER (LIE)</h3>
+            <p style="font-size: 1.05rem; margin-bottom: 6px;">Topic: <strong id="topicTrickster" style="color: white;"></strong></p>
+            
+            <div class="story-details-box" style="border-color: rgba(255, 0, 127, 0.3);">
+                <div style="font-size: 0.8rem; color: var(--accent-pink); font-weight: bold; margin-bottom: 4px; text-transform: uppercase;">Your Lie Scenario:</div>
+                <div id="storyPromptTrickster" style="color: var(--text-main);"></div>
+            </div>
+
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 12px;">Convince the Jury that this fake situation actually happened to you. Add small quirky details to make them believe you!</p>
+            <button onclick="rerollStoryPrompt()" class="small-btn yellow" style="width: 100%; margin-bottom: 10px;">🔄 Reroll Lie Prompt</button>
+            <button onclick="openRulesModal('trickster')" class="quick-rule-btn" style="border-color: rgba(255,0,127,0.4); color: var(--accent-pink);">💡 Trickster Tactics & Rules</button>
+        </div>
+
+        <!-- Role: JURY -->
+        <div id="cardJury" class="card-jury">
+            <h3 style="color: var(--accent-neon); margin-bottom: 10px;">⚖️ YOU ARE THE JURY</h3>
+            <p style="font-size: 1.1rem; margin-bottom: 10px;">Listen to <strong style="color: white;"><span id="speakerNameDisplay"></span></strong> talk about:</p>
+            <p style="font-size: 1.2rem; color: var(--accent-yellow); margin-bottom: 10px;"><strong id="topicJury"></strong></p>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;">Ask them questions! Try to figure out if they are telling a real story or bluffing as the Trickster.</p>
+            <button onclick="openRulesModal('jury')" class="quick-rule-btn">💡 Jury Detective Tips & Rules</button>
+        </div>
+
+        <!-- Voting Actions -->
+        <div id="voteSection">
+            <h3 style="color: var(--text-main); margin-bottom: 15px;">What is your verdict?</h3>
+            <button class="vote-btn green" onclick="submitVote('truth', event)">✅ I BELIEVE THEM (True Story)</button>
+            <button class="vote-btn pink" onclick="submitVote('lie', event)">❌ THEY ARE LYING (Trickster)</button>
+        </div>
+        
+        <div id="phoneResultDisplay" style="margin-top: 15px; font-size: 1rem; color: var(--text-main); display: none;"></div>
+
+        <div id="playerLeaderboard" class="mobile-scoreboard">
+            <div style="font-weight: bold; margin-bottom: 6px; color: var(--text-muted);">ROOM PLAYERS</div>
+            <div id="playerLeaderboardList"></div>
         </div>
     </div>
 
-    <!-- SOCKET.IO GAME SCRIPT -->
+    <!-- HOW TO PLAY & GAME RULES MODAL -->
+    <div id="rulesModal" class="modal-overlay" onclick="handleModalOverlayClick(event)">
+        <div class="rules-modal-content" onclick="event.stopPropagation()">
+            <div class="rules-modal-header">
+                <h2><span>📖</span> Truth or Trickster — How to Play & Game Rules</h2>
+                <button class="close-modal-btn" onclick="closeRulesModal()" title="Close">&times;</button>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="rules-nav-tabs">
+                <button id="tabBtn-overview" class="rules-tab-btn active" onclick="switchRulesTab('overview')">⚡ Quick Overview</button>
+                <button id="tabBtn-host" class="rules-tab-btn" onclick="switchRulesTab('host')">👑 Host Guide</button>
+                <button id="tabBtn-trickster" class="rules-tab-btn" onclick="switchRulesTab('trickster')">🎭 The Trickster</button>
+                <button id="tabBtn-truth" class="rules-tab-btn" onclick="switchRulesTab('truth')">🗣️ Truth Teller</button>
+                <button id="tabBtn-jury" class="rules-tab-btn" onclick="switchRulesTab('jury')">⚖️ The Jury</button>
+                <button id="tabBtn-scoring" class="rules-tab-btn" onclick="switchRulesTab('scoring')">🏆 Scoring Matrix</button>
+            </div>
+
+            <div class="rules-modal-body">
+                <!-- TAB 1: OVERVIEW -->
+                <div id="tab-overview" class="rules-tab-content active">
+                    <div class="rule-card highlight-neon">
+                        <div class="rule-card-title" style="color: var(--accent-neon);">🎯 The Premise</div>
+                        <p><strong>Truth or Trickster</strong> is a social deduction party bluffing game played with one main screen (Host) and multiple contestants connected from their smartphones.</p>
+                        <p style="margin-top: 8px;">In each round, one contestant takes the <strong>Hot Seat (Speaker)</strong> and receives a secret prompt. They are secretly assigned either to tell a <strong>100% True Story</strong> or to fabricate a believable <strong>Lie as the Trickster</strong>. All other players form the <strong>Jury</strong> to interrogate them and vote on their phones!</p>
+                    </div>
+                </div>
+
+                <!-- TAB 2: HOST GUIDE -->
+                <div id="tab-host" class="rules-tab-content">
+                    <div class="rule-card highlight-neon">
+                        <div class="rule-card-title" style="color: var(--accent-neon);">👑 Running the Game as Host</div>
+                        <p>As the Host, you control the main screen and guide the party through each thrilling round.</p>
+                    </div>
+                </div>
+
+                <!-- TAB 3: THE TRICKSTER -->
+                <div id="tab-trickster" class="rules-tab-content">
+                    <div class="rule-card highlight-pink">
+                        <div class="rule-card-title" style="color: var(--accent-pink);">🎭 You Are The Trickster (The Bluffer)</div>
+                        <p><strong>Your Mission:</strong> You have been secretly commanded to <strong>LIE</strong>. Fabricate a fake story on the spot and fool the Jury!</p>
+                    </div>
+                </div>
+
+                <!-- TAB 4: TRUTH TELLER -->
+                <div id="tab-truth" class="rules-tab-content">
+                    <div class="rule-card highlight-green">
+                        <div class="rule-card-title" style="color: var(--accent-green);">🗣️ You Are Telling The Truth</div>
+                        <p><strong>Your Mission:</strong> Tell a <strong>100% TRUE</strong> personal story from your real life about your assigned topic.</p>
+                    </div>
+                </div>
+
+                <!-- TAB 5: THE JURY -->
+                <div id="tab-jury" class="rules-tab-content">
+                    <div class="rule-card highlight-neon">
+                        <div class="rule-card-title" style="color: var(--accent-neon);">⚖️ You Are The Jury</div>
+                        <p><strong>Your Mission:</strong> Interrogate the Speaker, spot contradictions, and cast your vote on your phone!</p>
+                    </div>
+                </div>
+
+                <!-- TAB 6: SCORING MATRIX -->
+                <div id="tab-scoring" class="rules-tab-content">
+                    <div class="rule-card highlight-yellow">
+                        <div class="rule-card-title" style="color: var(--accent-yellow);">🏆 Scoring Matrix</div>
+                        <p>Trickster wins +20 PTS if fooled. Jurors or Truth Tellers win +10 PTS on correct verdicts.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rules-modal-footer">
+                <button onclick="closeRulesModal()" class="primary" style="width: auto; padding: 10px 24px; font-size: 0.95rem; margin-bottom: 0;">Got It / Close</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        const socket = io();
+        // Master Database of 200 Unique English/British Story & Lie Scenarios
+        const FULL_STORY_DATABASE = [
+            { id: 1, topic: "Celebrity Encounter", truthPrompt: "Share an awkward or surprising time you ran into a famous person or local personality.", liePrompt: "Claim you bumped into a famous celebrity at a random gas station or grocery store at 2 AM." },
+            { id: 2, topic: "Culinary Disaster", truthPrompt: "Describe a cooking accident where food was ruined or caused a funny kitchen emergency.", liePrompt: "Invent a story about accidentally ruining Thanksgiving or Christmas dinner with salt instead of sugar." },
+            { id: 3, topic: "Animal Mishap", truthPrompt: "Tell a real story about an unpredictable, funny, or scary encounter with an animal or pet.", liePrompt: "Pretend a wild animal (like a squirrel or rogue bird) got trapped inside your kitchen." },
+            { id: 4, topic: "Extreme Weather", truthPrompt: "Recall a storm, heatwave, or sudden weather event that totally derailed your plans.", liePrompt: "Invent a scenario where lightning struck a tree right next to your car while driving." },
+            { id: 5, topic: "Travel Nightmare", truthPrompt: "Share a genuine flight delay, lost passport, or terrible hotel room experience.", liePrompt: "Claim you got stuck in an elevator in a foreign country for 4 hours with total strangers." },
+            { id: 6, topic: "Mistaken Identity", truthPrompt: "Tell a time someone mistook you for someone else, or you mistook a stranger for a friend.", liePrompt: "Lie that you were aggressively confronted in public by someone who thought you owed them money." },
+            { id: 7, topic: "Childhood Rebellion", truthPrompt: "Recall a harmless rule you broke as a kid and whether you ever got caught.", liePrompt: "Claim you secretly took your parents' car for a joyride before you even had a learner's permit." },
+            { id: 8, topic: "Wardrobe Malfunction", truthPrompt: "Describe a public clothing rip, split shoe, or embarrassing fashion disaster.", liePrompt: "Lie about splitting your pants open right in the middle of a job interview or formal presentation." },
+            { id: 9, topic: "First Job Horrors", truthPrompt: "Share a bizarre, funny, or awful memory from your very first job.", liePrompt: "Claim you accidentally set off a fire alarm at work on your very first day on the job." },
+            { id: 10, topic: "Worst Date Ever", truthPrompt: "Recall a date that went completely wrong or had a hilarious awkward moment.", liePrompt: "Invent a date where the other person brought their ex or parent along without telling you." },
+            { id: 11, topic: "Unusual Injury", truthPrompt: "Tell how you got a scar or minor injury in the most ridiculous way possible.", liePrompt: "Claim you broke a toe by kicking a heavy couch while trying to catch a falling sandwich." },
+            { id: 12, topic: "Spooky Encounter", truthPrompt: "Describe an unexplainable noise, eerie feeling, or weird coincidence that creeped you out.", liePrompt: "Lie about staying in a haunted hotel room where the TV kept turning on by itself." },
+            { id: 13, topic: "Extreme Fast Food", truthPrompt: "Share a strange order custom order or weird drive-thru experience.", liePrompt: "Claim you once found a whole metal washer or screw at the bottom of your takeout burger." },
+            { id: 14, topic: "Public Transportation", truthPrompt: "Tell a story about a memorable or bizarre stranger on a bus, train, or subway.", liePrompt: "Pretend you fell asleep on a train and woke up at the final stop 100 miles past your city." },
+            { id: 15, topic: "Lost & Found", truthPrompt: "Share a time you lost something valuable and surprisingly found it later.", liePrompt: "Lie that you lost your phone down a port-a-potty and actually retrieved it." },
+            { id: 16, topic: "Grocery Store Mishap", truthPrompt: "Share a time you accidentally knocked over a display or caused a mess in a supermarket.", "liePrompt": "Claim you accidentally walked out of the store with a cart full of groceries without paying because you were on the phone." },
+            { id: 17, topic: "Driving Test Drama", truthPrompt: "Recall your actual driving test experience and what made you nervous.", "liePrompt": "Invent a lie about failing your driving test because you accidentally drove over a traffic cone." },
+            { id: 18, topic: "Gym Membership Fail", "truthPrompt": "Describe a funny or awkward moment while trying out a brand new workout routine.", "liePrompt": "Claim you fell off a treadmill at full speed and flew into the stretching area." },
+            { id: 19, topic: "Awkward Elevator", "truthPrompt": "Share a bizarre or uncomfortable silence you experienced in a crowded elevator.", "liePrompt": "Lie that the elevator got stuck between floors and someone started panicking loudly." },
+            { id: 20, topic: "Autocorrect Blunder", "truthPrompt": "Recall a funny or disastrous text message autocorrect error you sent to someone important.", "liePrompt": "Claim autocorrect changed a message to your boss into a weird love poem." },
+            { id: 21, topic: "Password Chaos", "truthPrompt": "Describe a time you got completely locked out of a critical online account.", "liePrompt": "Lie that you accidentally locked your entire company out of their server database for a day." },
+            { id: 22, topic: "Neighbor Dispute", "truthPrompt": "Share a funny or annoying interaction you had with a local neighbor.", "liePrompt": "Claim your neighbor accused your cat of stealing their garden gnomes." },
+            { id: 23, topic: "Package Delivery", "truthPrompt": "Recall a weird package delivery mix-up where you received someone else's strange order.", "liePrompt": "Invent a story about a delivery driver leaving a massive crate of live crickets on your porch." },
+            { id: 24, topic: "Job Interview Blunder", "truthPrompt": "Share a genuine awkward moment or mistake from a job interview you attended.", "liePrompt": "Claim you spilled hot coffee directly onto the hiring manager's lap within two minutes of sitting down." },
+            { id: 25, topic: "Locked Out Emergency", "truthPrompt": "Tell a real story about locking yourself out of your house or apartment at the worst possible time.", "liePrompt": "Lie that you had to climb through a second-story bathroom window using a rickety ladder." },
+            { id: 26, topic: "Unexpected Guest", "truthPrompt": "Describe a time an unannounced visitor showed up while your place was a total mess.", "liePrompt": "Claim your estranged relative showed up unannounced and stayed on your couch for three weeks." },
+            { id: 27, topic: "Movie Theater Incident", "truthPrompt": "Recall something funny or disruptive that happened while you were watching a movie in theaters.", "liePrompt": "Lie that you accidentally walked into the wrong screening and sat through the wrong movie for an hour." },
+            { id: 28, topic: "Public Speaking", "truthPrompt": "Share a memory of having to speak in front of a large group of people unexpectedly.", "liePrompt": "Claim you forgot your entire presentation and ended up improvising a speech about penguins." },
+            { id: 29, topic: "Camping Disaster", "truthPrompt": "Describe a camping or hiking trip where everything that could go wrong did go wrong.", "liePrompt": "Invent a story about your tent blowing away in the middle of a torrential rainstorm at midnight." },
+            { id: 30, topic: "Amusement Park Ride", "truthPrompt": "Recall a roller coaster or theme park ride experience that terrified you.", "liePrompt": "Claim your phone flew out of your hand on a drop ride and miraculously landed in an employee's cup." },
+            { id: 31, topic: "Flight Layover Hell", "truthPrompt": "Share a real nightmare story about being stranded at an airport overnight.", "liePrompt": "Lie that you missed your flight because you fell asleep inside an airport massage chair." },
+            { id: 32, topic: "Hotel Room Nightmare", "truthPrompt": "Describe a terrible hotel room feature or issue you encountered on a trip.", "liePrompt": "Claim your hotel room key opened someone else's room while they were inside." },
+            { id: 33, topic: "Lost Wallet Adventure", "truthPrompt": "Tell about a time you lost your wallet or purse and how it was eventually returned.", "liePrompt": "Lie that a stranger tracked you down on social media just to return a single dollar bill you dropped." },
+            { id: 34, topic: "Surprise Party Spoiler", "truthPrompt": "Recall a time you accidentally ruined a surprise party for someone.", "liePrompt": "Claim you walked in on your own surprise party but pretended to be completely shocked anyway." },
+            { id: 35, topic: "Broken Bone Story", "truthPrompt": "Tell the real story of how you fractured or broke a bone in your body.", "liePrompt": "Invent a wild story about breaking your arm while trying to jump over a hedge like an action hero." },
+            { id: 36, topic: "Gym Locker Mix-up", "truthPrompt": "Share a time you grabbed the wrong bag or locker by mistake at a gym or pool.", "liePrompt": "Claim you accidentally walked home wearing someone else's jacket and shoes." },
+            { id: 37, topic: "Wrong Text Sent", "truthPrompt": "Recall a text message you accidentally sent to the wrong person.", "liePrompt": "Lie that you accidentally texted a juicy gossip message about your boss directly to your boss." },
+            { id: 38, topic: "Cooking Show Attempt", "truthPrompt": "Describe a time you tried to cook a gourmet recipe and failed miserably.", "liePrompt": "Claim you tried to flambé a dessert and accidentally scorched your kitchen ceiling." },
+            { id: 39, topic: "Traffic Jam Madness", "truthPrompt": "Share a memory of being stuck in an insane traffic standstill.", "liePrompt": "Lie that you got out of your car during a highway jam to help herd loose sheep off the road." },
+            { id: 40, topic: "Stuck in Mud or Snow", "truthPrompt": "Recall a time your vehicle got hopelessly stuck in mud, sand, or deep snow.", "liePrompt": "Claim you had to push your car out of a ditch while wearing formal wedding attire." },
+            { id: 41, topic: "Bad Haircut Disaster", "truthPrompt": "Share a painful memory of a barber or hairdresser cutting your hair way too short.", "liePrompt": "Lie that you tried cutting your own bangs at 3 AM and looked like a startled cartoon character." },
+            { id: 42, topic: "Party Wardrobe Fail", "truthPrompt": "Describe a time you dressed completely wrong for a party or event's dress code.", "liePrompt": "Claim you showed up to a black-tie gala dressed in a full dinosaur mascot costume." },
+            { id: 43, topic: "Lost Pet Rescue", "truthPrompt": "Tell a true story about chasing down a runaway pet.", "liePrompt": "Invent a story about chasing a loose goat through a crowded downtown shopping district." },
+            { id: 44, topic: "Rogue Bird Attack", "truthPrompt": "Recall a time a bird or seagull aggressively swooped down at you.", "liePrompt": "Claim a territorial goose chased you across an entire park until you surrendered your sandwich." },
+            { id: 45, topic: "Supermarket Announcement", "truthPrompt": "Share a time you heard something funny over a grocery store intercom.", "liePrompt": "Lie that you accidentally grabbed the store microphone and sang a song out loud." },
+            { id: 46, topic: "Coffee Spill Crisis", "truthPrompt": "Describe a coffee spill disaster right before an important moment.", "liePrompt": "Claim you spilled an entire iced coffee directly onto a pristine white sofa at a furniture store." },
+            { id: 47, "topic": "Screen Freeze", "truthPrompt": "Recall a time your computer screen froze during an important video call.", "liePrompt": "Claim your webcam froze while you were making a hilarious funny face at the camera." },
+            { id: 48, "topic": "Printer Rage", "truthPrompt": "Share a frustrating experience dealing with a jammed office printer.", "liePrompt": "Lie that you physically smashed a malfunctioning printer with a baseball bat in frustration." },
+            { id: 49, "topic": "Car Breakdown Mystery", "truthPrompt": "Describe a time your car broke down in the middle of nowhere.", "liePrompt": "Claim your car engine started making musical notes instead of a normal breakdown sound." },
+            { id: 50, "topic": "Highway Flat Tire", "truthPrompt": "Recall changing a flat tire on the side of a busy highway.", "liePrompt": "Lie that a passing trucker stopped and changed your tire while singing opera music." },
+            { id: 51, "topic": "Running Late", "truthPrompt": "Share a chaotic morning where everything went wrong and you ran super late.", "liePrompt": "Claim you rushed out of the house wearing two different boots and didn't notice until noon." },
+            { id: 52, "topic": "Alarm Clock Failure", "truthPrompt": "Recall a time your alarm failed and you overslept for something major.", "liePrompt": "Lie that your alarm clock went off 3 hours early and you got ready in total darkness." },
+            { id: 53, "topic": "Loud Neighbor Music", "truthPrompt": "Describe dealing with a neighbor blasting music at unreasonable hours.", "liePrompt": "Claim you knocked on the neighbor's door and found them hosting a silent disco party." },
+            { id: 54, "topic": "Stolen Parking Spot", "truthPrompt": "Share a time someone stole a parking spot you were clearly waiting for.", "liePrompt": "Lie that you stood in the empty parking space yourself to block another car from stealing it." },
+            { id: 55, "topic": "Drive-Thru Confusion", "truthPrompt": "Recall a funny misunderstanding at a fast-food drive-thru speaker.", "liePrompt": "Claim you accidentally ordered food meant for your dog at a human drive-thru." },
+            { id: 56, "topic": "Wrong Fast Food Order", "truthPrompt": "Share a time you got home and realized your takeout order was completely wrong.", "liePrompt": "Lie that you opened a burger bag and found stacks of cash instead of food." },
+            { id: 57, "topic": "Ice Cream Meltdown", "truthPrompt": "Describe a sad moment when an ice cream cone melted before you could eat it.", "liePrompt": "Claim a massive seagull swooped down and snatched your entire ice cream cone mid-bite." },
+            { id: 58, "topic": "Grocery Cart Collision", "truthPrompt": "Recall a time you crashed your shopping cart into someone else's cart.", "liePrompt": "Lie that you accidentally drifted a grocery cart around a corner and took out a pyramid of soup cans." },
+            { id: 59, "topic": "Slipping on Ice", "truthPrompt": "Share a dramatic slip or fall you took on icy winter pavement.", "liePrompt": "Claim you slid across an entire frozen parking lot on your knees like a rockstar." },
+            { id: 60, "topic": "Puddle Splash", "truthPrompt": "Recall a time a passing car splashed dirty puddle water all over your clothes.", "liePrompt": "Lie that a bus drove through a puddle and splashed you so hard your phone stopped working." },
+            { id: 61, "topic": "No Umbrella Rain", "truthPrompt": "Describe getting caught in a sudden torrential downpour without an umbrella.", "liePrompt": "Claim you tried protecting yourself from the rain using a large pizza box as a shield." },
+            { id: 62, "topic": "Sunburn Blunder", "truthPrompt": "Share a time you got a terrible sunburn because you forgot sunscreen.", "liePrompt": "Lie that you got a sunburn in the exact shape of your sunglasses on your face." },
+            { id: 63, "topic": "Mosquito Nightmare", "truthPrompt": "Recall a camping trip or night outdoors plagued by relentless mosquitoes.", "liePrompt": "Claim you woke up with over fifty mosquito bites forming a smiley face on your arm." },
+            { id: 64, "topic": "Bee Sting Drama", "truthPrompt": "Describe the last time you got stung by a bee or wasp.", "liePrompt": "Lie that a bee landed on your nose during a serious meeting and you had to stay completely still." },
+            { id: 65, "topic": "Spider in Room", "truthPrompt": "Share your reaction to finding a massive spider crawling across your bedroom wall.", "liePrompt": "Claim the spider was so big you had to abandon your bedroom and sleep in the bathtub." },
+            { id: 66, "topic": "Mouse in House", "truthPrompt": "Recall a time a mouse or rodent found its way into your home.", "liePrompt": "Lie that you tried catching a mouse with a laundry basket and it outsmarted you for hours." },
+            { id: 67, "topic": "Ghost Story", "truthPrompt": "Share an eerie experience or strange coincidence you can't logically explain.", "liePrompt": "Claim your living room lights flickered and spelled out a word in Morse code." },
+            { id: 68, "topic": "Night Noise", "truthPrompt": "Describe a weird scratching or bumping sound that kept you awake at night.", "liePrompt": "Lie that the mysterious night noise turned out to be a raccoon eating snacks in your pantry." },
+            { id: 69, "topic": "Power Outage", "truthPrompt": "Recall spending an entire evening during a major blackout.", "liePrompt": "Lie that you spent a blackout playing board games by flashlight with total strangers." },
+            { id: 70, "topic": "Candlelight Dinner Fail", "truthPrompt": "Share a romantic or family dinner attempt that went sideways.", "liePrompt": "Claim your romantic candlelight dinner caused a wax spill that permanently ruined the dining table." },
+            { id: 71, "topic": "Burning Toast", "truthPrompt": "Describe setting off the smoke detector by burning simple toast.", "liePrompt": "Lie that the smoke detector went off so loudly the fire department showed up for a single piece of bread." },
+            { id: 72, "topic": "Microwave Explosion", "truthPrompt": "Recall a food item exploding inside a microwave and making a huge mess.", "liePrompt": "Claim you tried microwaving a hard-boiled egg and it exploded like a small grenade." },
+            { id: 73, "topic": "Fridge Mystery", "truthPrompt": "Share a time you found a science experiment growing in the back of your fridge.", "liePrompt": "Lie that you discovered a forgotten takeout container from over a year ago that started moving." },
+            { id: 74, "topic": "Expired Food Mistake", "truthPrompt": "Recall eating something expired before realizing it.", "liePrompt": "Lie that you drank a whole glass of milk before realizing it was chunky and expired." },
+            { id: 75, "topic": "Pantry Raid", "truthPrompt": "Describe a late-night snack raid where you mixed weird ingredients together.", "liePrompt": "Claim you made a sandwich out of peanut butter, pickles, and potato chips and loved it." },
+            { id: 76, "topic": "Late Snack Run", "truthPrompt": "Share a memory of going on a bizarre midnight run for food.", "liePrompt": "Lie that you drove to three different stores at 3 AM just to find a specific brand of chips." },
+            { id: 77, "topic": "Vending Machine Trap", "truthPrompt": "Recall a time a vending machine ate your money or got your snack stuck.", "liePrompt": "Claim you shook a vending machine so hard a bonus candy bar fell out on top." },
+            { id: 78, "topic": "ATM Error", "truthPrompt": "Share an annoying moment with an ATM or bank machine.", "liePrompt": "Lie that an ATM spat out an extra hundred-dollar bill and you didn't know what to do." },
+            { id: 79, "topic": "Card Declined", "truthPrompt": "Recall the embarrassment of your bank card getting declined at checkout.", "liePrompt": "Lie that your card was declined because the bank thought you were buying suspicious items." },
+            { id: 80, "topic": "Forgotten Wallet", "truthPrompt": "Describe realizing you left your wallet at home right when you reached the register.", "liePrompt": "Claim you had to wash dishes in the restaurant kitchen to pay for your meal." },
+            { id: 81, "topic": "Bargain Hunting", "truthPrompt": "Share an amazing discount or clearance find you scored.", "liePrompt": "Lie that you bought a designer jacket at a thrift store for two dollars." },
+            { id: 82, "topic": "Thrift Store Treasure", "truthPrompt": "Recall a weird or funny item you found while browsing a second-hand shop.", "liePrompt": "Claim you found a vintage portrait of yourself at a thrift store." },
+            { id: 83, "topic": "Garage Sale Find", "truthPrompt": "Describe a cool or bizarre object you bought at a neighborhood garage sale.", "liePrompt": "Lie that you bought an old working arcade cabinet at a garage sale for ten bucks." },
+            { id: 84, "topic": "Flea Market Bargain", "truthPrompt": "Share an experience haggling with a vendor at a flea market.", "liePrompt": "Lie that you successfully haggled a seller down from fifty dollars to fifty cents." },
+            { id: 85, "topic": "Antique Shop Mishap", "truthPrompt": "Recall feeling terrified of breaking something fragile in an antique store.", "liePrompt": "Claim you sneezed and knocked over a stack of antique saucers." },
+            { id: 86, "topic": "Museum Warning", "truthPrompt": "Share a time you accidentally got too close to an art exhibit and security warned you.", "liePrompt": "Lie that security thought you were part of a modern art performance piece." },
+            { id: 87, "topic": "Art Gallery Confusion", "truthPrompt": "Recall visiting an abstract art gallery that left you totally confused.", "liePrompt": "Claim you stood staring at a blank wall in a gallery for ten minutes while people praised your art critique." },
+            { id: 88, "topic": "Library Silence", "truthPrompt": "Describe a time you accidentally made a loud noise in a quiet library.", "liePrompt": "Lie that your phone alarm went off playing heavy metal music in the middle of a silent study hall." },
+            { id: 89, "topic": "Bookstore Seclusion", "truthPrompt": "Share a memory of losing track of time while browsing books.", "liePrompt": "Claim you accidentally got locked inside a bookstore overnight after falling asleep in an armchair." },
+            { id: 90, "topic": "Exam Hall Panic", "truthPrompt": "Recall walking into a major exam and realizing you studied the wrong material.", "liePrompt": "Lie that you answered an entire exam using quotes from a sci-fi movie." },
+            { id: 91, "topic": "Pop Quiz Surprise", "truthPrompt": "Describe the sinking feeling of getting hit with an unannounced pop quiz.", "liePrompt": "Claim you guessed every single question on a pop quiz and somehow got an A." },
+            { id: 92, "topic": "School Locker Jam", "truthPrompt": "Recall a school locker combination or door that jammed shut on you.", "liePrompt": "Lie that your locker was so overstuffed it exploded open in front of the whole hallway." },
+            { id: 93, "topic": "Cafeteria Food", "truthPrompt": "Share a funny or questionable meal experience from a school or work cafeteria.", "liePrompt": "Claim you found a mysterious rubber toy baked inside a cafeteria casserole." },
+            { id: 94, "topic": "Science Lab Spill", "truthPrompt": "Describe a chemistry or science lab experiment that went sideways.", "liePrompt": "Lie that you turned a school science lab sink green and had to evacuate the room." },
+            { id: 95, "topic": "Dodgeball Hit", "truthPrompt": "Recall taking a painfully funny hit during a gym class dodgeball game.", "liePrompt": "Claim you got knocked out cold by a dodgeball thrown from across the entire gym." },
+            { id: 96, "topic": "Swimming Pool Dive", "truthPrompt": "Describe an awkward belly flop or clumsy dive into a swimming pool.", "liePrompt": "Claim your swimsuit completely fell off when you hit the water during a public dive." },
+            { id: 97, "topic": "Trampoline Mishap", "truthPrompt": "Share a funny or painful memory from jumping on a backyard trampoline.", "liePrompt": "Lie that you bounced so high you flew over the safety net into a bush." },
+            { id: 98, "topic": "Skateboard Wipeout", "truthPrompt": "Recall a memorable wipeout while trying to ride a skateboard or scooter.", "liePrompt": "Claim you tried doing a trick, crashed into a bush, and lost your shoe for a week." },
+            { id: 99, "topic": "Bicycle Chain Snap", "truthPrompt": "Describe a time your bike chain snapped far away from home.", "liePrompt": "Lie that you had to carry your broken bike on your shoulder for five miles uphill." },
+            { id: 100, "topic": "Rollerblade Fall", "truthPrompt": "Share your clumsiest moment trying out rollerblades or roller skates.", "liePrompt": "Claim you skated straight into a fountain because you didn't know how to stop." },
+            { id: 101, "topic": "Karaoke Stage Nightmare", "truthPrompt": "Recall a karaoke performance where you forgot the lyrics or picked the wrong song.", "liePrompt": "Lie that you forgot the words to a song and just yelled the chorus into the mic." },
+            { id: 102, "topic": "Dance Floor Embarrassment", "truthPrompt": "Describe a wild dance move that went wrong at a party or wedding.", "liePrompt": "Claim you tried a backflip on the dance floor and kicked a decorative plant across the room." },
+            { id: 103, "topic": "Wedding Toast Blunder", "truthPrompt": "Share an awkward speech or toast memory from a wedding.", "liePrompt": "Lie that you accidentally mixed up notes and read a speech meant for a completely different wedding." },
+            { id: 104, "topic": "Birthday Cake Drop", "truthPrompt": "Recall a birthday cake disaster involving a fall or melted frosting.", "liePrompt": "Claim you tripped and face-planted directly into the birthday cake candles." },
+            { id: 105, "topic": "Terrible Gift", "truthPrompt": "Describe the most awkward or useless gift you ever received.", "liePrompt": "Lie that someone gifted you a live rooster and you had to drive it home in your passenger seat." },
+            { id: 106, "topic": "Awkward Hug", "truthPrompt": "Share an uncomfortable cross-signals hug interaction with a stranger or acquaintance.", "liePrompt": "Claim you tried to hug a person who was actually just pointing at something behind you." },
+            { id: 107, "topic": "Waving at Wrong Person", "truthPrompt": "Recall enthusiastically waving at someone who turned out to be a complete stranger.", "liePrompt": "Lie that you ran across a busy street waving at a stranger thinking they were your long-lost friend." },
+            { id: 108, "topic": "Calling Teacher Mom", "truthPrompt": "Share the embarrassment of accidentally calling a teacher or boss 'Mom' or 'Dad'.", "liePrompt": "Claim you accidentally called your boss 'Mom' during a high-stakes performance review." },
+            { id: 109, "topic": "Loud Stomach Grumble", "truthPrompt": "Recall a time your stomach growled loudly during a dead-silent moment.", "liePrompt": "Lie that your stomach growled so loud during a presentation that the microphone picked it up." },
+            { id: 110, "topic": "Sneezing Fit", "truthPrompt": "Describe an uncontrollable sneezing fit that struck at the worst possible time.", "liePrompt": "Claim you sneezed seven times in a row during a solemn library tour." },
+            { id: 111, "topic": "Hiccup Attack", "truthPrompt": "Recall getting stuck with a terrible case of hiccups during an important talk.", "liePrompt": "Lie that you hiccuped so loudly during a movie screening that everyone turned around to look at you." },
+            { id: 112, "topic": "Inappropriate Laughter", "truthPrompt": "Share a time you fought back laughter during a serious or solemn moment.", "liePrompt": "Claim you burst out laughing during a serious professional seminar because someone dropped a pen." },
+            { id: 113, "topic": "Tripping on Flat Ground", "truthPrompt": "Recall a clumsy moment where you tripped over absolutely nothing.", "liePrompt": "Lie that you managed to trip over a crack in completely flat pavement and dropped your phone." },
+            { id: 114, "topic": "Phone in Toilet", "truthPrompt": "Describe the dreaded moment of dropping your phone into water.", "liePrompt": "Claim your phone slipped out of your hand and bounced twice before landing in a puddle." },
+            { id: 115, "topic": "Keys Locked Inside Car", "truthPrompt": "Share a frustrating time you locked your keys inside your running car.", "liePrompt": "Lie that you locked your keys and your pet inside the car while the radio blared polka music." },
+            { id: 116, "topic": "Boiler Breakdown in Winter", "truthPrompt": "Share a real memory of your home boiler cutting out on a freezing morning and waiting for an engineer.", "liePrompt": "Lie that your boiler broke down on Christmas Eve and you had to warm up the living room with hair dryers." },
+            { id: 117, "topic": "Kettle Descaling Disaster", "truthPrompt": "Recall a time you drank tea or coffee only to realize the kettle had vinegar or descaler solution inside.", "liePrompt": "Claim you accidentally served your guest a cup of tea made with water that had descaling solution in it." },
+            { id: 118, "topic": "Queue Jumping Outrage", "truthPrompt": "Describe a time someone blatantly jumped a queue in front of you and the awkward reaction of the room.", "liePrompt": "Lie that someone jumped a line of twenty people and everyone in line aggressively tutted in unison." },
+            { id: 119, "topic": "Greggs Sausage Roll Run", "truthPrompt": "Share a memory of grabbing a quick bake or sausage roll on a freezing rainy morning.", "liePrompt": "Claim you dropped a fresh vegan sausage roll on the pavement and a pigeon flew off with the whole thing." },
+            { id: 120, "topic": "Sunbed Towel Battle", "truthPrompt": "Recall a holiday incident where people reserved pool loungers with towels before sunrise.", "liePrompt": "Lie that you woke up at 5 AM on holiday just to move ten towels off the best sunbeds into the pool." },
+            { id: 121, "topic": "Sunday Roast Gravy Fail", "truthPrompt": "Tell a story about ruining or spilling the gravy during a big Sunday family dinner.", "liePrompt": "Claim you accidentally made Sunday roast gravy using chocolate instant powder instead of granules." },
+            { id: 122, "topic": "Soggy Biscuit Dunk", "truthPrompt": "Recall the tragic moment a biscuit broke off mid-dunk and sank to the bottom of your tea.", "liePrompt": "Lie that you lost three biscuits in a row to the bottom of a mug and tried fishing them out with a fork." },
+            { id: 123, "topic": "Bank Holiday Rainstorm", "truthPrompt": "Share a time a long Bank Holiday weekend was ruined by non-stop heavy British rain.", "liePrompt": "Claim you planned a Bank Holiday seaside barbecue and had to cook sausages under a golf umbrella." },
+            { id: 124, "topic": "Seagull Chip Theft", "truthPrompt": "Tell a true story about an aggressive seagull snatching chips or food right out of your hand.", "liePrompt": "Lie that a seagull swooped down at the beach and stole an entire wrapped paper cone of fish and chips." },
+            { id: 125, "topic": "M25 Traffic Standstill", "truthPrompt": "Describe getting stuck in an endless motorway traffic jam where people started turning off engines.", "liePrompt": "Claim you were stuck on the motorway for so long that people started playing frisbee on the hard shoulder." },
+            { id: 126, "topic": "Underground Escalator Etiquette", "truthPrompt": "Share an awkward moment on a train station escalator where someone blocked the left walking side.", "liePrompt": "Lie that you accidentally stood on the left side of a busy Tube escalator and got lectured by three people." },
+            { id: 127, "topic": "Oyster Card Red Light", "truthPrompt": "Recall the panic of your ticket or contactless card beep-booping red at a busy train barrier.", "liePrompt": "Claim the ticket barrier closed on your bag and trapped you in front of fifty rushing commuters." },
+            { id: 128, "topic": "Pub Quiz Wooden Spoon", "truthPrompt": "Share a memory of playing local pub trivia and coming dead last in the standings.", "liePrompt": "Lie that your team scored zero points in a pub quiz because you put joke answers for every question." },
+            { id: 129, "topic": "Spilling a Pint", "truthPrompt": "Recall the horror of knocking over a full, fresh pint of beer at a packed pub.", "liePrompt": "Claim you slipped on a rug in a pub and threw a full pint across two tables onto a stranger's lap." },
+            { id: 130, "topic": "Round Buying Drama", "truthPrompt": "Describe a time someone vanished right when it was their turn to buy a round of drinks.", "liePrompt": "Lie that someone went to the bathroom when it was their round and didn't come back for forty-five minutes." },
+            { id: 131, "topic": "Packet of Crisps Debate", "truthPrompt": "Share a casual debate with friends over the absolute best crisp flavor or brand.", "liePrompt": "Claim you ate a packet of pickled onion crisps so strong your tongue went numb for two hours." },
+            { id: 132, "topic": "Corner Shop Milk Run", "truthPrompt": "Tell a story about rushing to the local off-licence or corner shop in pajamas for late milk.", "liePrompt": "Lie that you walked to the corner shop in fluffy slippers during a snowstorm just for a loaf of bread." },
+            { id: 133, "topic": "Self-Service Checkout Item", "truthPrompt": "Recall the annoying 'Unexpected item in bagging area' voice warning at the supermarket.", "liePrompt": "Claim the self-checkout machine repeated 'Unexpected item' ten times until a manager had to reset it." },
+            { id: 134, "topic": "Meal Deal Combinations", "truthPrompt": "Share your go-to supermarket lunchtime meal deal choice and why you picked it.", "liePrompt": "Lie that a cashier refused your meal deal because you picked a drink that wasn't in the offer." },
+            { id: 135, "topic": "Bin Day Confusion", "truthPrompt": "Tell a story about forgetting whether it was black bin or recycling wheelie bin week.", "liePrompt": "Claim you ran down the street in your dressing gown chasing the bin lorry with a single bag." },
+            { id: 136, "topic": "Overgrown Garden Hedge", "truthPrompt": "Describe a battle trying to trim an overgrown garden hedge or bush in the yard.", "liePrompt": "Lie that your hedge trimmer got jammed on an old rusty horseshoe buried inside a bush." },
+            { id: 137, "topic": "Marmite Reaction", "truthPrompt": "Share your genuine strong opinion (love or hate) about Marmite or a bold food spread.", "liePrompt": "Claim you accidentally spread Marmite on toast thinking it was chocolate spread and ate a big bite." },
+            { id: 138, "topic": "Flat Beer at the Local", "truthPrompt": "Recall returning a warm or flat drink at a local pub and the awkwardness involved.", "liePrompt": "Lie that you complained about a flat pint and the bartender gave you three free drinks as an apology." },
+            { id: 139, "topic": "Wrong Train Platform", "truthPrompt": "Describe the panic of standing on the wrong train platform as your actual train pulls away.", "liePrompt": "Claim you sprinted over a station footbridge in 30 seconds only to watch the train doors close." },
+            { id: 140, "topic": "Double-Decker Bus View", "truthPrompt": "Share a memory of sitting right at the front top deck of a double-decker bus as a kid or adult.", "liePrompt": "Lie that the top deck of your double-decker bus scraped tree branches so hard everyone ducked." },
+            { id: 141, "topic": "Black Cab Shortcut", "truthPrompt": "Recall taking a taxi ride where the driver knew an amazingly obscure shortcut through alleyways.", "liePrompt": "Lie that a cab driver spent 20 minutes ranting about roadworks before driving you in a complete circle." },
+            { id: 142, "topic": "Pot Noodle Overfill", "truthPrompt": "Tell a story about putting way too much boiling water into an instant noodle cup.", "liePrompt": "Claim you filled a Pot Noodle past the line and turned it into a watery soup with no flavor." },
+            { id: 143, "topic": "Sunday League Football", "truthPrompt": "Share a funny or muddy memory from playing or watching amateur Sunday grass football.", "liePrompt": "Lie that a Sunday League match was paused because a local dog ran onto the pitch and stole the ball." },
+            { id: 144, "topic": "Full English Breakfast Swap", "truthPrompt": "Describe asking a cafe to swap black pudding or beans for extra bacon on a fried breakfast.", "liePrompt": "Claim a cafe charged you two extra pounds just to swap baked beans for an extra hash brown." },
+            { id: 145, "topic": "Ice Cream Van Jingle", "truthPrompt": "Recall hearing the ice cream van music down the street and sprinting outside to catch it.", "liePrompt": "Lie that the ice cream van drove past your house three times without stopping despite you waving." },
+            { id: 146, "topic": "Car Boot Sale Haggling", "truthPrompt": "Share a story about waking up at dawn to browse or sell items at a crowded car boot sale.", "liePrompt": "Claim you sold an old box of random cables at a car boot sale for fifty pounds to a collector." },
+            { id: 147, "topic": "Pothole Tire Pop", "truthPrompt": "Describe hitting a massive road pothole and fearing your car's suspension or wheel was ruined.", "liePrompt": "Lie that hitting a massive pothole popped two of your tires at the exact same time." },
+            { id: 148, "topic": "Charity Shop Discovery", "truthPrompt": "Tell about finding a surprisingly valuable or hilarious vintage item in a High Street charity shop.", "liePrompt": "Lie that you bought an original vintage vinyl record at a charity shop for fifty pence." },
+            { id: 149, "topic": "Fish and Chips Vinegar Drench", "truthPrompt": "Recall drowning your takeaway chips in so much salt and vinegar that your eyes watered.", "liePrompt": "Claim the lid came off the vinegar bottle and soaked your entire takeaway order." },
+            { id: 150, "topic": "Scone Cream First Debate", "truthPrompt": "Share a funny debate over whether jam or clotted cream goes on a scone first.", "liePrompt": "Claim you served scones to Cornish locals with cream first and almost caused a polite uproar." },
+            { id: 151, "topic": "Car De-icing Frozen Door", "truthPrompt": "Describe scraping thick ice off a windshield using a credit card because you couldn't find a scraper.", "liePrompt": "Lie that your car door handles were frozen so solid you had to pour warm water around the seal." },
+            { id: 152, "topic": "Roundabout Missed Exit", "truthPrompt": "Tell a story about getting confused on a multi-lane roundabout and driving in circles.", "liePrompt": "Claim you went around a giant three-lane roundabout three full times before figuring out your exit." },
+            { id: 153, "topic": "Two Separate Taps", "truthPrompt": "Recall burning your hand on the piping hot water tap while trying to mix it with the freezing cold tap.", "liePrompt": "Lie that you washed your face under the hot tap by mistake and looked like a lobster for an hour." },
+            { id: 154, "topic": "Warm Beer Summer Day", "truthPrompt": "Describe sitting outside a pub on the one hot summer day of the year until it suddenly poured rain.", "liePrompt": "Claim a summer beer garden was so packed people were sitting on the grass curbs outside the pub." },
+            { id: 155, "topic": "TV License Envelope", "truthPrompt": "Share a joke or real story about receiving official-looking letters about television licensing.", "liePrompt": "Lie that an inspector knocked on your door while you were clearly playing video games in the dark." },
+            { id: 156, "topic": "Washing Line Rain Sprint", "truthPrompt": "Recall sprinting out to the garden to grab wet laundry off the line right as a shower started.", "liePrompt": "Claim you rushed to grab washing off the line and a gust of wind blew a bedsheet over your head." },
+            { id: 157, "topic": "Panto He's Behind You", "truthPrompt": "Share a childhood or adult memory of attending a traditional pantomime show.", "liePrompt": "Lie that an actor at a panto pointed you out in the front row and made you yell the catchphrase." },
+            { id: 158, "topic": "Guy Fawkes Bonfire Night", "truthPrompt": "Describe standing out in a freezing park watching fireworks on the 5th of November.", "liePrompt": "Claim a damp firework at a display hissed for ten seconds and then just puffed out a tiny cloud of smoke." },
+            { id: 159, "topic": "Christmas Jumper Day", "truthPrompt": "Tell a story about wearing an intentionally tacky knitted holiday jumper to work or school.", "liePrompt": "Lie that your festive jumper had built-in flashing lights that short-circuited mid-meeting." },
+            { id: 160, "topic": "Boxing Day Leftovers", "truthPrompt": "Share a memory of eating turkey and stuffing sandwiches for three days straight after Christmas.", "liePrompt": "Claim your family made turkey curry on Boxing Day that was so spicy nobody could finish it." },
+            { id: 161, "topic": "Pass the Parcel Drama", "truthPrompt": "Recall a childhood birthday party game where someone stopped the music at the wrong time.", "liePrompt": "Lie that you won a game of pass the parcel only to find the grand prize was a plastic whistle." },
+            { id: 162, "topic": "School Sports Day Sack Race", "truthPrompt": "Describe a hilarious fall or victory during a school field day obstacle or sack race.", "liePrompt": "Claim you tripped in the egg-and-spoon race two feet from the finish line and smashed the egg." },
+            { id: 163, "topic": "Conker Fight Challenge", "truthPrompt": "Share a memory of soaking horse chestnuts in vinegar to win playground conker battles.", "liePrompt": "Lie that your champion conker shattered on the very first hit against your rival's chestnut." },
+            { id: 164, "topic": "Ice Lolly Drip", "truthPrompt": "Recall eating a melting ice lolly in the sun until sticky juice ran all down your forearm.", "liePrompt": "Claim the wooden stick snapped off inside your lolly on the first bite and it fell onto your shoe." },
+            { id: 165, "topic": "Pimms Pitcher Fruit", "truthPrompt": "Describe drinking a fruity summer jug of Pimms at a barbecue or garden gathering.", "liePrompt": "Lie that someone dumped half a bowl of chopped cucumber into a Pimms pitcher by mistake." },
+            { id: 166, "topic": "Slush Puppy Tongue", "truthPrompt": "Share a childhood memory of buying a bright blue or red frozen slush drink that stained your mouth.", "liePrompt": "Claim your tongue stayed electric blue for twenty-four hours after drinking a double slushie." },
+            { id: 167, "topic": "Picnic Blanket Wasps", "truthPrompt": "Recall wasps invading your outdoor picnic the second you opened a can of fizzy drink.", "liePrompt": "Lie that five wasps trapped you inside your car while you were trying to eat a sandwich." },
+            { id: 168, "topic": "Caravan Holiday Rain", "truthPrompt": "Describe spending a wet week crammed inside a static holiday caravan with family.", "liePrompt": "Claim the rain sounded so loud on the metal caravan roof that nobody slept for three nights." },
+            { id: 169, "topic": "Pier Arcade Penny Falls", "truthPrompt": "Share the thrill of dropping 2p coins into an arcade pusher machine trying to tip the edge.", "liePrompt": "Lie that a single 2p coin triggered a cascade that dumped fifty coins into the tray at once." },
+            { id: 170, "topic": "Punch and Judy Show", "truthPrompt": "Recall watching a traditional puppet show at a seaside town boardwalk as a kid.", "liePrompt": "Lie that a puppet show operated on the beach got washed away by a sudden high tide." },
+            { id: 171, "topic": "Donkey Ride Beach", "truthPrompt": "Tell a story about riding a slow donkey along a sandy coastal beach.", "liePrompt": "Claim the beach donkey you were riding stopped dead in its tracks and refused to move for ten minutes." },
+            { id: 172, "topic": "Rock Candy Tooth Danger", "truthPrompt": "Describe trying to bite into a rock-hard stick of seaside souvenir rock candy.", "liePrompt": "Lie that you nearly cracked a tooth biting into a mint rock stick bought at a pier." },
+            { id: 173, "topic": "Windbreak Beach Defense", "truthPrompt": "Recall struggling to hammer wooden windbreak poles into hard sand with a rock.", "liePrompt": "Claim a strong seaside breeze blew your plastic windbreak down four times in ten minutes." },
+            { id: 174, "topic": "Ferry Crossing Motion", "truthPrompt": "Share a rough water ferry journey where half the passengers felt sea sick.", "liePrompt": "Lie that the ferry waves were so choppy your hot tea slid right off the cafeteria table." },
+            { id: 175, "topic": "National Trust Walking Trail", "truthPrompt": "Describe a weekend hike through muddy country fields following wooden footpath arrows.", "liePrompt": "Lie that you followed a trail map into a field and got cornered by a herd of curious cows." },
+            { id: 176, "topic": "Stile Fence Climb", "truthPrompt": "Recall climbing over a wooden countryside ladder stile while carrying a heavy backpack.", "liePrompt": "Claim your coat pocket caught on a wooden stile post and ripped as you swung your leg over." },
+            { id: 177, "topic": "Muddy Wellies Stuck", "truthPrompt": "Tell a story about walking through deep clay mud until your rubber boot got pulled clean off your foot.", "liePrompt": "Lie that you stepped in boggy mud and had to hop on one foot while pulling your boot out." },
+            { id: 178, "topic": "Electric Fence Zap", "truthPrompt": "Recall accidentally brushing against or testing a farm electric wire fence.", "liePrompt": "Claim you touched an electric farm fence with grass and got a shock that made you jump backward." },
+            { id: 179, "topic": "Village Fete Jam Contest", "truthPrompt": "Share a memory of attending a rural summer fete with cake baking and raffle tables.", "liePrompt": "Lie that you won second place in a village raffle for a basket of homemade chutneys." },
+            { id: 180, "topic": "Tombola Ticket Disappointment", "truthPrompt": "Describe spinning a drum of tickets at a fair only to draw five non-winning tickets in a row.", "liePrompt": "Lie that you won a giant three-foot stuffed bear on a single 50p tombola ticket." },
+            { id: 181, "topic": "Bouncy Castle Collapse", "truthPrompt": "Recall a kids party inflatable slowly deflating while everyone was still inside jumping.", "liePrompt": "Claim the generator cut out on a bouncy castle and everyone slid into the middle like a funnel." },
+            { id: 182, "topic": "School Disco Slow Dance", "truthPrompt": "Share an awkward middle school dance memory when the lights dimmed and slow songs played.", "liePrompt": "Lie that you stood in the gym corner drinking warm fruit punch for the entire two-hour school disco." },
+            { id: 183, "topic": "Tuck Shop Candy Run", "truthPrompt": "Describe buying cheap penny sweets or chocolate bars during break time at school.", "liePrompt": "Claim you bought fifty cola bottles at the tuck shop and traded them for a gaming comic." },
+            { id: 184, "topic": "P.E. Kit Forgotten", "truthPrompt": "Tell the terror of forgetting your gym clothes and having to wear lost-property gym kit.", "liePrompt": "Lie that you had to do gym class in heavy wool school trousers because you forgot your shorts." },
+            { id: 185, "topic": "School Bus Back Seat", "truthPrompt": "Share a memory of sitting on the noisy row of seats at the back of a double-decker school bus.", "liePrompt": "Claim someone threw a paper airplane from the back of the bus that hit the driver's mirror." },
+            { id: 186, "topic": "Non-Uniform Day Flex", "truthPrompt": "Recall the pressure of deciding what street clothes to wear on school casual wear day.", "liePrompt": "Lie that you showed up on non-uniform day wearing a neon green tracksuit nobody else liked." },
+            { id: 187, "topic": "Milky Tea Debate", "truthPrompt": "Describe someone making a cup of tea that looked so pale and milky it was an insult.", "liePrompt": "Claim a coworker served you tea that was so white and weak it tasted like warm plain milk." },
+            { id: 188, "topic": "Building Site Whistle", "truthPrompt": "Share an awkward walk past scaffolding or street roadworks while machinery roared.", "liePrompt": "Lie that a road worker yelled over a jackhammer to compliment your bright umbrella." },
+            { id: 189, "topic": "Pavement Slab Trip", "truthPrompt": "Recall catching your toe on an uneven paving stone on a high street and stumbling forward.", "liePrompt": "Claim you tripped on an uneven slab and managed to turn it into an awkward jogging stride." },
+            { id: 190, "topic": "Shed Re-painting", "truthPrompt": "Describe spending a weekend painting a wooden garden shed in dark brown weather coating.", "liePrompt": "Lie that you accidentally painted half the neighbor's fence panel while touching up your shed." },
+            { id: 191, "topic": "Lawnmower String Pull", "truthPrompt": "Recall yanking the pull-cord of a stubborn petrol lawnmower ten times in a row.", "liePrompt": "Claim the pull-string on your mower snapped off in your hand on the very first tug." },
+            { id: 192, "topic": "Wheelbarrow Tilt", "truthPrompt": "Share a gardening blunder where a wheelbarrow full of dirt tipped over onto grass.", "liePrompt": "Lie that you pushed a wheelbarrow over a garden hose and dumped three bags of soil on the patio." },
+            { id: 193, "topic": "Pressure Washer Patio Blast", "truthPrompt": "Describe the satisfying process of cleaning dark grime off stone garden slabs with a washer.", "liePrompt": "Claim you pressure-washed a patio slab so hard you blasted a clean stripe into the stone." },
+            { id: 194, "topic": "Charcoal Barbecue Flare-Up", "truthPrompt": "Recall flame flare-ups burning sausages to charcoal on the outside while raw inside.", "liePrompt": "Lie that your barbecue sausages caught fire and you extinguished them with a cup of lemonade." },
+            { id: 195, "topic": "Folding Deckchair Pinch", "truthPrompt": "Share a painful moment where a collapsing wooden deckchair pinched your fingers.", "liePrompt": "Lie that you sat down on a cheap lawn chair and the canvas fabric ripped straight down the middle." },
+            { id: 196, "topic": "Gazebo Wind Lift", "truthPrompt": "Recall a pop-up garden tent taking off like a kite during a gust of summer wind.", "liePrompt": "Claim a summer breeze lifted your garden gazebo over a six-foot fence into the next yard." },
+            { id: 197, "topic": "Wobbly Pub Table", "truthPrompt": "Describe jamming folded beer mats or coasters under a wobbly wooden pub table leg.", "liePrompt": "Lie that you stacked four folded beer mats under a table leg before it finally stopped rocking." },
+            { id: 198, "topic": "Pint Glass Nucleation", "truthPrompt": "Recall watching bubbles rise in a branded pub glass while waiting for friends to arrive.", "liePrompt": "Claim a bartender poured a draft drink so fast that half the glass was solid thick white foam." },
+            { id: 199, "topic": "Pub Dog Greeting", "truthPrompt": "Share a lovely memory of a friendly dog wandering around an old local pub floor.", "liePrompt": "Lie that an old pub dog sat next to your stool until you gave him a piece of bar snack." },
+            { id: 200, "topic": "Bar Snack Selection", "truthPrompt": "Describe opening a card packet of pork scratchings or salted peanuts at a pub counter.", "liePrompt": "Claim you bit into a rock-hard pork scratching and thought you broke a filling." }
+        ];
 
-        let state = {
-            view: 'home',
-            playerName: '',
-            roomCode: '',
-            hostSecret: '',
-            isHost: false,
-            players: []
-        };
+        // Active pool of unplayed stories for the current game session
+        let availableStories = [];
 
-        // Connection status tracking
-        socket.on('connect', () => {
-            document.getElementById('statusDot').className = "w-2 h-2 rounded-full bg-green-500";
-            document.getElementById('statusText').innerText = "Connected";
-        });
+        function resetAvailableStories() {
+            // Clone the master database and shuffle it randomly
+            availableStories = [...FULL_STORY_DATABASE].sort(() => Math.random() - 0.5);
+        }
 
-        socket.on('disconnect', () => {
-            document.getElementById('statusDot').className = "w-2 h-2 rounded-full bg-red-500 animate-pulse";
-            document.getElementById('statusText').innerText = "Disconnected";
-        });
-
-        socket.on('room-update', (roomState) => {
-            state.players = roomState.players;
-            if (state.view === 'lobby') {
-                updateLobbyUI();
+        function getRandomPrompt() {
+            // If all stories have been used up in this game session, reset the pool
+            if (!availableStories || availableStories.length === 0) {
+                resetAvailableStories();
             }
-        });
-
-        // Luister of het spel gestart is door de host
-        socket.on('game-started', (roomState) => {
-            switchView('game');
-            showToast("Het spel is begonnen!");
-        });
-
-        socket.on('room-closed', () => {
-            showModal("Room Closed", "The host has left the room.");
-            leaveRoom();
-        });
-
-        function showModal(title, message) {
-            document.getElementById('modalTitle').innerText = title;
-            document.getElementById('modalMessage').innerText = message;
-            document.getElementById('messageModal').classList.remove('hidden');
+            // Take and remove the next unique story from the randomized pool
+            return availableStories.pop();
         }
 
-        function closeMessageModal() {
-            document.getElementById('messageModal').classList.add('hidden');
+        // Initialize story pool on load
+        resetAvailableStories();
+
+        function rerollStoryPrompt() {
+            playSound('click');
+            const prompt = getRandomPrompt();
+            document.getElementById('topicTruth').innerText = prompt.topic;
+            document.getElementById('storyPromptTruth').innerText = prompt.truthPrompt;
+            document.getElementById('topicTrickster').innerText = prompt.topic;
+            document.getElementById('storyPromptTrickster').innerText = prompt.liePrompt;
         }
 
-        function showToast(msg) {
-            const toast = document.createElement('div');
-            toast.className = 'fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 bg-zinc-900 border border-purple-500/50 px-4 py-2.5 rounded-xl shadow-neon-purple text-xs text-white font-medium animate-fadeIn';
-            toast.innerText = msg;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 2500);
-        }
+        // Game State
+        let currentRole = 'none'; // 'host', 'player', 'none'
+        let currentRoomCode = '';
+        let currentHostSecret = '';
+        let myPlayerId = '';
+        let myPlayerName = '';
+        let hasVotedThisRound = false;
+        let lastVotedOption = null;
+        let pollTimer = null;
+        let lastKnownRound = -1;
+        let lastKnownStatus = '';
 
-        function openRulesModal() { document.getElementById('rulesModal').classList.remove('hidden'); }
-        function closeRulesModal() { document.getElementById('rulesModal').classList.add('hidden'); }
-
-        function switchView(viewName) {
-            state.view = viewName;
-            document.getElementById('viewHome').classList.add('hidden');
-            document.getElementById('viewLobby').classList.add('hidden');
-            document.getElementById('viewGame').classList.add('hidden');
-
-            if (viewName === 'home') document.getElementById('viewHome').classList.remove('hidden');
-            if (viewName === 'lobby') document.getElementById('viewLobby').classList.remove('hidden');
-            if (viewName === 'game') document.getElementById('viewGame').classList.remove('hidden');
-        }
-
-        function createRoom() {
-            const name = document.getElementById('playerNameInput').value.trim();
-            if (!name) {
-                showModal("Name Required", "Please enter your nickname.");
-                return;
-            }
-            state.playerName = name;
-
-            socket.emit('create-room', (response) => {
-                if (response.success) {
-                    state.roomCode = response.code;
-                    state.hostSecret = response.hostSecret;
-                    state.isHost = true;
-                    document.getElementById('displayRoomCode').innerText = state.roomCode;
-                    document.getElementById('hostBadgeContainer').classList.remove('hidden');
-                    document.getElementById('hostControls').classList.remove('hidden');
-                    document.getElementById('guestControls').classList.add('hidden');
-                    
-                    socket.emit('join-room', { code: state.roomCode, name: state.playerName }, (res) => {
-                        switchView('lobby');
-                        showToast("Room created: " + state.roomCode);
-                    });
+        // Auto-fill room code from URL parameter if present (?room=1234 or ?code=1234)
+        window.addEventListener('DOMContentLoaded', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const codeParam = urlParams.get('room') || urlParams.get('code');
+            if (codeParam && codeParam.length === 4) {
+                const roomInput = document.getElementById('roomCodeInput');
+                if (roomInput) {
+                    roomInput.value = codeParam;
+                    document.getElementById('playerNameInput')?.focus();
                 }
-            });
-        }
-
-        function joinRoom() {
-            const name = document.getElementById('playerNameInput').value.trim();
-            const code = document.getElementById('roomCodeInput').value.trim().toUpperCase();
-
-            if (!name) {
-                showModal("Name Required", "Please enter your nickname.");
-                return;
             }
-            if (code.length !== 4) {
-                showModal("Invalid Code", "Please enter a valid 4-digit code.");
-                return;
-            }
+        });
 
-            state.playerName = name;
-            state.roomCode = code;
-            state.isHost = false;
+        // Web Audio Synthesizer
+        let audioCtx = null;
+        function playSound(type) {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                const now = audioCtx.currentTime;
 
-            socket.emit('join-room', { code, name }, (response) => {
-                if (response.success) {
-                    document.getElementById('displayRoomCode').innerText = code;
-                    document.getElementById('hostBadgeContainer').classList.add('hidden');
-                    document.getElementById('hostControls').classList.add('hidden');
-                    document.getElementById('guestControls').classList.remove('hidden');
-                    switchView('lobby');
-                    showToast("Joined room " + code);
-                } else {
-                    showModal("Error", response.error || "Could not join room.");
+                if (type === 'click') {
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(800, now + 0.05);
+                    gain.gain.setValueAtTime(0.05, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'vote') {
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.exponentialRampToValueAtTime(900, now + 0.1);
+                    gain.gain.setValueAtTime(0.06, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+                    osc.start(now);
+                    osc.stop(now + 0.1);
+                } else if (type === 'reveal') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(600, now + 0.5);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                    osc.start(now);
+                    osc.stop(now + 0.5);
                 }
-            });
+            } catch (e) {
+                // Ignore audio errors on unsupported devices
+            }
         }
 
-        function copyRoomCode() {
-            navigator.clipboard.writeText(state.roomCode);
-            showToast("Room code copied!");
+        function showJoinError(msg) {
+            const errBox = document.getElementById('joinError');
+            errBox.innerText = msg;
+            errBox.style.display = 'block';
         }
 
-        function leaveRoom() {
-            window.location.reload();
+        function clearJoinError() {
+            const errBox = document.getElementById('joinError');
+            errBox.innerText = '';
+            errBox.style.display = 'none';
         }
 
-        function updateLobbyUI() {
-            const listEl = document.getElementById('lobbyPlayersList');
-            const countEl = document.getElementById('playerCountBadge');
-            listEl.innerHTML = '';
-            countEl.innerText = state.players.length + " / 8";
+        // --- HOST ACTIONS ---
+        async function startHosting() {
+            clearJoinError();
+            const hostBtn = document.getElementById('hostBtn');
+            hostBtn.disabled = true;
+            hostBtn.innerText = "Creating Room...";
 
-            state.players.forEach(p => {
-                const item = document.createElement('div');
-                item.className = 'flex items-center justify-between p-3 bg-zinc-900 border border-zinc-800 rounded-xl';
-                item.innerHTML = `
-                    <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-lg bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold text-xs">
-                            ${p.name.charAt(0).toUpperCase()}
+            // Reset story pool for a fresh game session
+            resetAvailableStories();
+
+            try {
+                const res = await fetch('/api/game/create', { method: 'POST' });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || "Failed to create room");
+                }
+
+                currentRole = 'host';
+                currentRoomCode = data.code;
+                currentHostSecret = data.hostSecret;
+
+                document.getElementById('homeView').style.display = 'none';
+                document.getElementById('hostView').style.display = 'grid';
+                document.getElementById('roomCodeDisplay').innerText = currentRoomCode;
+                document.getElementById('connStatus').innerText = "Room Online & Ready";
+
+                startPollingHost();
+            } catch (err) {
+                showJoinError(err.message || "Failed to start room. Please try again.");
+                hostBtn.disabled = false;
+                hostBtn.innerText = "Start as Host (Big Screen)";
+            }
+        }
+
+        function startPollingHost() {
+            if (pollTimer) clearInterval(pollTimer);
+            pollHostState();
+            pollTimer = setInterval(pollHostState, 1000);
+        }
+
+        async function pollHostState() {
+            if (!currentRoomCode || !currentHostSecret) return;
+            try {
+                const res = await fetch(`/api/game/state?code=${encodeURIComponent(currentRoomCode)}&hostSecret=${encodeURIComponent(currentHostSecret)}`);
+                if (!res.ok) return;
+                const state = await res.json();
+                renderHostView(state);
+            } catch (e) {
+                document.getElementById('connStatus').innerText = "Reconnecting...";
+            }
+        }
+
+        function renderHostView(state) {
+            document.getElementById('connStatus').innerText = "Online & Ready";
+            const players = state.players || [];
+            document.getElementById('playerCount').innerText = players.length;
+
+            // Render Player List Container
+            const listContainer = document.getElementById('playerListContainer');
+            if (players.length === 0) {
+                listContainer.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 10px;">Waiting for players to join with code <strong style="color:var(--accent-yellow)">${state.code}</strong></div>`;
+            } else {
+                let html = '';
+                players.forEach(p => {
+                    let badgeClass = 'pending';
+                    let badgeText = 'Standing By';
+
+                    if (p.isSpeaker) {
+                        badgeClass = 'speaking';
+                        badgeText = '🎤 Speaker';
+                    } else if (state.status === 'voting') {
+                        badgeClass = p.hasVoted ? 'voted' : 'pending';
+                        badgeText = p.hasVoted ? 'Voted 🔒' : 'Deciding...';
+                    } else if (state.status === 'storytelling') {
+                        badgeClass = 'pending';
+                        badgeText = 'Listening 👀';
+                    }
+                    html += `<div class="player-item"><span>${escapeHtml(p.name)}</span><span class="badge ${badgeClass}">${badgeText}</span></div>`;
+                });
+                listContainer.innerHTML = html;
+            }
+
+            // Render Scoreboard
+            const scoreboardContainer = document.getElementById('scoreboardList');
+            if (players.length === 0) {
+                scoreboardContainer.innerHTML = `<div style="color: var(--text-muted); text-align: center; font-size: 0.8rem; padding: 10px;">Waiting for players...</div>`;
+            } else {
+                const sorted = [...players].sort((a, b) => b.score - a.score);
+                let scoreHtml = '';
+                sorted.forEach(p => {
+                    scoreHtml += `<div class="player-item"><span>${escapeHtml(p.name)}</span><span class="badge score">${p.score} PTS</span></div>`;
+                });
+                scoreboardContainer.innerHTML = scoreHtml;
+            }
+
+            // Main Stage Display depending on status
+            const storyTitle = document.getElementById('hostStoryTitle');
+            const storyText = document.getElementById('hostStoryText');
+            const instruction = document.getElementById('hostInstruction');
+            const votesDisplay = document.getElementById('hostVotesDisplay');
+
+            if (state.status === 'lobby') {
+                storyTitle.innerText = "SYSTEM READY";
+                storyText.innerHTML = (players.length < 2 
+                    ? `Waiting for players to join (${players.length} connected)...` 
+                    : `<span style="color:var(--accent-green)">${players.length} players ready!</span> Click '1. Pick Speaker & Topic' to begin.`) +
+                    `<div class="lobby-rules-summary">
+                        <div class="rule-card highlight-neon" style="margin-bottom:0;">
+                            <div style="font-weight:bold; color:var(--accent-neon); margin-bottom:4px;">👑 The Host</div>
+                            <div style="font-size:0.85rem; color:var(--text-muted);">Runs the screen, starts rounds, guides interrogation, and reveals scores.</div>
                         </div>
-                        <span class="text-sm font-medium text-white">${p.name}</span>
+                        <div class="rule-card highlight-pink" style="margin-bottom:0;">
+                            <div style="font-weight:bold; color:var(--accent-pink); margin-bottom:4px;">🎭 The Trickster</div>
+                            <div style="font-size:0.85rem; color:var(--text-muted);">Secretly commanded to lie! Bluff the jury to win +20 PTS jackpot.</div>
+                        </div>
+                        <div class="rule-card highlight-yellow" style="margin-bottom:0;">
+                            <div style="font-weight:bold; color:var(--accent-yellow); margin-bottom:4px;">⚖️ The Jury</div>
+                            <div style="font-size:0.85rem; color:var(--text-muted);">Contestants ask questions and vote True or Lie to earn +10 PTS.</div>
+                        </div>
                     </div>
-                    ${p.id === state.players[0]?.id ? '<span class="text-[10px] bg-purple-500/10 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded-full uppercase tracking-wider font-semibold">Host</span>' : '<span class="text-xs text-zinc-500">Player</span>'}
-                `;
-                listEl.appendChild(item);
+                    <div style="margin-top: 15px;">
+                        <button onclick="openRulesModal('overview')" class="quick-rule-btn" style="font-size: 0.85rem; padding: 8px 16px;">📖 Open Full How-to-Play Guide & Rules</button>
+                    </div>`;
+                instruction.innerText = `Join on your phone at ${window.location.host} with code ${state.code}`;
+                votesDisplay.style.display = 'none';
+            } else if (state.status === 'storytelling') {
+                storyTitle.innerHTML = `Speaker: <span style="color:white;">${escapeHtml(state.speakerName || 'Unknown')}</span>`;
+                storyText.innerText = `Topic: "${state.currentTopic}"`;
+                instruction.innerText = "The speaker is telling their story. Interrogate them with questions!";
+                votesDisplay.style.display = 'none';
+            } else if (state.status === 'voting') {
+                storyTitle.innerText = "JURY DELIBERATION & VOTING";
+                const votedCount = players.filter(p => !p.isSpeaker && p.hasVoted).length;
+                const totalJury = players.filter(p => !p.isSpeaker).length;
+                storyText.innerText = `Votes Locked: ${votedCount} / ${totalJury}`;
+                instruction.innerText = "Jury members, lock in your verdicts on your phones!";
+                votesDisplay.style.display = 'none';
+            } else if (state.status === 'reveal') {
+                storyTitle.innerText = "VERDICT REVEALED";
+                storyText.innerHTML = `${escapeHtml(state.resultTitle)}<br><span style="font-size:1.2rem; color:var(--text-muted); font-weight: normal; margin-top: 10px; display:inline-block;">${escapeHtml(state.resultSubtitle)}</span>`;
+                instruction.innerText = "Round complete! Click '1. Pick Speaker & Topic' for the next round.";
+
+                // Render vote breakdown cards
+                let votePills = '';
+                players.forEach(p => {
+                    if (!p.isSpeaker && p.vote) {
+                        const isTrue = p.vote === 'truth';
+                        const pillBg = isTrue ? 'rgba(16,185,129,0.2)' : 'rgba(255,0,127,0.2)';
+                        const pillBorder = isTrue ? 'var(--accent-green)' : 'var(--accent-pink)';
+                        const icon = isTrue ? 'True ✅' : 'Lie ❌';
+                        votePills += `<div style="background:${pillBg}; border:1px solid ${pillBorder}; padding:6px 12px; border-radius:6px; font-size:0.9rem;"><strong>${escapeHtml(p.name)}:</strong> ${icon}</div>`;
+                    }
+                });
+                votesDisplay.innerHTML = votePills;
+                votesDisplay.style.display = 'flex';
+            }
+        }
+
+        async function nextRound() {
+            playSound('click');
+            const btn = document.getElementById('btnNextRound');
+            btn.disabled = true;
+            try {
+                const prompt = getRandomPrompt();
+                const res = await fetch('/api/game/next-round', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: currentRoomCode, hostSecret: currentHostSecret, topic: prompt.topic })
+                });
+                const data = await res.json();
+                if (!res.ok) alert(data.error || "Failed to start next round");
+                await pollHostState();
+            } catch (e) {
+                alert("Network error starting round");
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function startVoting() {
+            playSound('click');
+            const btn = document.getElementById('btnStartVote');
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/game/start-voting', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: currentRoomCode, hostSecret: currentHostSecret })
+                });
+                const data = await res.json();
+                if (!res.ok) alert(data.error || "Failed to start voting");
+                await pollHostState();
+            } catch (e) {
+                alert("Network error starting voting");
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function revealTruth() {
+            playSound('reveal');
+            const btn = document.getElementById('btnReveal');
+            btn.disabled = true;
+            try {
+                const res = await fetch('/api/game/reveal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: currentRoomCode, hostSecret: currentHostSecret })
+                });
+                const data = await res.json();
+                if (!res.ok) alert(data.error || "Failed to reveal truth");
+                await pollHostState();
+            } catch (e) {
+                alert("Network error revealing truth");
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function copyRoomLink() {
+            const link = `${window.location.origin}/?room=${currentRoomCode}`;
+            navigator.clipboard.writeText(link).then(() => {
+                alert(`Join link copied to clipboard!\n${link}`);
+            }).catch(() => {
+                prompt("Copy this game link:", link);
             });
         }
 
-        function startGame() {
-            // Stuur start-game signaal naar de server
-            socket.emit('start-game', { code: state.roomCode, hostSecret: state.hostSecret });
+        // --- PLAYER ACTIONS ---
+        async function joinGame() {
+            clearJoinError();
+            myPlayerName = document.getElementById('playerNameInput').value.trim();
+            const inputCode = document.getElementById('roomCodeInput').value.trim();
+            const joinBtn = document.getElementById('joinBtn');
+
+            if (!myPlayerName) {
+                showJoinError("Please enter your name.");
+                return;
+            }
+            if (inputCode.length !== 4) {
+                showJoinError("Please enter a 4-digit room code.");
+                return;
+            }
+
+            joinBtn.disabled = true;
+            joinBtn.innerText = "Joining Game...";
+
+            try {
+                const res = await fetch('/api/game/join', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: inputCode, name: myPlayerName })
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || "Failed to join game.");
+                }
+
+                currentRole = 'player';
+                currentRoomCode = data.roomCode;
+                myPlayerId = data.playerId;
+
+                document.getElementById('homeView').style.display = 'none';
+                document.getElementById('playerView').style.display = 'block';
+                document.getElementById('playerDisplayName').innerText = myPlayerName;
+                document.getElementById('playerRoomBadge').innerText = `[Room: ${currentRoomCode}]`;
+                document.getElementById('playerStatus').innerText = "Connected! Waiting for host to start round.";
+
+                startPollingPlayer();
+            } catch (err) {
+                showJoinError(err.message || "Failed to join game. Check the code.");
+                joinBtn.disabled = false;
+                joinBtn.innerText = "Join Game";
+            }
         }
 
-        function returnToHome() {
-            switchView('home');
+        function startPollingPlayer() {
+            if (pollTimer) clearInterval(pollTimer);
+            pollPlayerState();
+            pollTimer = setInterval(pollPlayerState, 1000);
         }
 
-        window.onload = () => switchView('home');
+        async function pollPlayerState() {
+            if (!currentRoomCode || !myPlayerId) return;
+            try {
+                const res = await fetch(`/api/game/state?code=${encodeURIComponent(currentRoomCode)}&playerId=${encodeURIComponent(myPlayerId)}`);
+                if (!res.ok) {
+                    if (res.status === 404) {
+                        document.getElementById('playerStatus').innerText = "Room has ended.";
+                    }
+                    return;
+                }
+                const state = await res.json();
+                renderPlayerView(state);
+            } catch (e) {
+                document.getElementById('playerStatus').innerText = "Connecting...";
+            }
+        }
+
+        function renderPlayerView(state) {
+            const playerState = state.playerState;
+            if (!playerState) return;
+
+            // Update score
+            document.getElementById('playerScoreDisplay').innerText = `Score: ${playerState.score} PTS`;
+
+            // Render players leaderboard
+            const players = state.players || [];
+            const listEl = document.getElementById('playerLeaderboardList');
+            if (players.length > 0) {
+                listEl.innerHTML = players
+                    .map(p => `<div style="display:flex; justify-content:space-between; padding:3px 0; color:${p.id === myPlayerId ? 'var(--accent-neon)' : 'var(--text-muted)'};"><span>${escapeHtml(p.name)}${p.id === myPlayerId ? ' (You)' : ''}</span><span><strong>${p.score}</strong> pts</span></div>`)
+                    .join('');
+            }
+
+            const role = playerState.role;
+            const status = state.status;
+            const roundNumber = state.roundNumber;
+
+            // Check if round changed
+            if (roundNumber !== lastKnownRound || status !== lastKnownStatus) {
+                lastKnownRound = roundNumber;
+                lastKnownStatus = status;
+                if (status === 'storytelling' || status === 'lobby') {
+                    hasVotedThisRound = false;
+                    lastVotedOption = null;
+                    if (role?.isSpeaker) {
+                        rerollStoryPrompt();
+                    }
+                }
+            }
+
+            if (status === 'lobby') {
+                hideAllCards();
+                document.getElementById('playerStatus').innerText = "Waiting in lobby for Host to start...";
+                return;
+            }
+
+            if (status === 'storytelling') {
+                hideAllCards();
+                if (role?.isSpeaker) {
+                    document.getElementById('playerStatus').innerText = "🔥 YOU ARE IN THE HOT SEAT!";
+                    if (role.isTrickster) {
+                        document.getElementById('cardTrickster').style.display = 'block';
+                    } else {
+                        document.getElementById('cardTruth').style.display = 'block';
+                    }
+                } else {
+                    document.getElementById('playerStatus').innerText = "👀 Listen and interrogate the speaker!";
+                    document.getElementById('cardJury').style.display = 'block';
+                    document.getElementById('speakerNameDisplay').innerText = role?.speakerName || 'Speaker';
+                    document.getElementById('topicJury').innerText = role?.topic || '';
+                }
+                return;
+            }
+
+            if (status === 'voting') {
+                hideAllCards();
+                if (role?.isSpeaker) {
+                    document.getElementById('playerStatus').innerText = "⚖️ The Jury is voting on your story!";
+                    if (role.isTrickster) {
+                        document.getElementById('cardTrickster').style.display = 'block';
+                    } else {
+                        document.getElementById('cardTruth').style.display = 'block';
+                    }
+                } else {
+                    document.getElementById('voteSection').style.display = 'block';
+                    if (hasVotedThisRound || playerState.vote) {
+                        document.getElementById('playerStatus').innerText = "🔒 Vote Locked! Waiting for Host...";
+                        const btns = document.querySelectorAll('.vote-btn');
+                        btns.forEach(b => {
+                            b.disabled = true;
+                            b.style.opacity = (lastVotedOption === 'truth' && b.classList.contains('green')) || (lastVotedOption === 'lie' && b.classList.contains('pink')) ? '1' : '0.3';
+                        });
+                    } else {
+                        document.getElementById('playerStatus').innerText = "VOTING PHASE: Cast your verdict!";
+                        const btns = document.querySelectorAll('.vote-btn');
+                        btns.forEach(b => {
+                            b.disabled = false;
+                            b.style.opacity = '1';
+                        });
+                    }
+                }
+                return;
+            }
+
+            if (status === 'reveal') {
+                hideAllCards();
+                document.getElementById('voteSection').style.display = 'none';
+                document.getElementById('playerStatus').innerText = "Round Over!";
+                
+                const earned = playerState.lastEarned;
+                const pointsBadge = earned > 0 
+                    ? `<div style="margin-top:10px; font-size:1.2rem; color:var(--accent-yellow); font-weight:bold;">+${earned} Points Earned! 🎉</div>`
+                    : `<div style="margin-top:10px; font-size:0.9rem; color:var(--text-muted);">No points this round.</div>`;
+
+                const resDiv = document.getElementById('phoneResultDisplay');
+                resDiv.style.display = 'block';
+                resDiv.innerHTML = `
+                    <div style="background: rgba(255,255,255,0.06); padding: 20px; border-radius: 10px; border: 1px solid var(--accent-neon);">
+                        <strong style="font-size: 1.2rem; color: ${state.speakerIsTrickster ? 'var(--accent-pink)' : 'var(--accent-green)'};">${escapeHtml(state.resultTitle)}</strong><br>
+                        <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 8px;">${escapeHtml(state.resultSubtitle)}</p>
+                        ${pointsBadge}
+                    </div>
+                `;
+            }
+        }
+
+        async function submitVote(guess, evt) {
+            if (hasVotedThisRound) return;
+            playSound('vote');
+            hasVotedThisRound = true;
+            lastVotedOption = guess;
+
+            const btns = document.querySelectorAll('.vote-btn');
+            btns.forEach(b => {
+                b.disabled = true;
+                b.style.opacity = '0.3';
+            });
+            if (evt && evt.currentTarget) {
+                evt.currentTarget.style.opacity = '1';
+            }
+
+            document.getElementById('playerStatus').innerText = "🔒 Locking vote...";
+
+            try {
+                const res = await fetch('/api/game/vote', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        code: currentRoomCode,
+                        playerId: myPlayerId,
+                        guess: guess
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    alert(data.error || "Failed to submit vote");
+                    hasVotedThisRound = false;
+                } else {
+                    document.getElementById('playerStatus').innerText = "✅ Vote Locked! Waiting for Host...";
+                }
+            } catch (e) {
+                alert("Network error submitting vote");
+                hasVotedThisRound = false;
+            }
+        }
+
+        function hideAllCards() {
+            document.getElementById('cardTruth').style.display = 'none';
+            document.getElementById('cardTrickster').style.display = 'none';
+            document.getElementById('cardJury').style.display = 'none';
+            document.getElementById('voteSection').style.display = 'none';
+            document.getElementById('phoneResultDisplay').style.display = 'none';
+        }
+
+        // --- RULES MODAL CONTROLS ---
+        function openRulesModal(tabName = 'overview') {
+            playSound('click');
+            const modal = document.getElementById('rulesModal');
+            if (modal) {
+                modal.classList.add('active');
+                switchRulesTab(tabName);
+            }
+        }
+
+        function closeRulesModal() {
+            playSound('click');
+            const modal = document.getElementById('rulesModal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+
+        function handleModalOverlayClick(event) {
+            if (event.target && event.target.id === 'rulesModal') {
+                closeRulesModal();
+            }
+        }
+
+        function switchRulesTab(tabName) {
+            const tabs = document.querySelectorAll('.rules-tab-content');
+            tabs.forEach(t => t.classList.remove('active'));
+
+            const btns = document.querySelectorAll('.rules-tab-btn');
+            btns.forEach(b => b.classList.remove('active'));
+
+            const targetContent = document.getElementById(`tab-${tabName}`);
+            const targetBtn = document.getElementById(`tabBtn-${tabName}`);
+
+            if (targetContent) targetContent.classList.add('active');
+            if (targetBtn) targetBtn.classList.add('active');
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('rulesModal');
+                if (modal && modal.classList.contains('active')) {
+                    closeRulesModal();
+                }
+            }
+        });
+
+        function escapeHtml(text) {
+            if (!text) return "";
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return String(text).replace(/[&<>"']/g, m => map[m]);
+        }
     </script>
 </body>
 </html>
